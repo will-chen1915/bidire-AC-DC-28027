@@ -1,0 +1,2220 @@
+/******************************** INCLUDES **********************************/
+
+#include "input_control.h"		       // module header file
+#include "F2802x_Device.h"
+
+
+
+/********************************* DEFINES ***********************************/
+
+/*
+ * As the real VDDA is near the supply us for VREFINT calibration.
+ * It will be -2 < corr < 2, therefore we can hold the factor as Q2.14
+ */
+#define ADC_CORR_SHIFT 14
+
+
+// Period of time between measurements/caculation.
+#define K32_BULK_INTERVAL 				  hptsc_UsToTicks(200)
+#define K32_IpVolt_INTERVAL         hptsc_MsToTicks(15)
+#define K32_TEMP_INTERVAL  				  hptsc_MsToTicks(1)
+#define K32_AC_IIN_VOLT_INTERVAL 		hptsc_UsToTicks(250)
+#define K32_AC_HALF_PERIOD_MIN    	hptsc_MsToTicks(6.7)
+#define K32_AC_HALF_PERIOD_MAX    	hptsc_MsToTicks(12.5)
+#define K32_MEASURABLE_PERIOD_MAX   hptsc_MsToTicks(13.5)
+#define K32_FREQ_TEST_T             (K32_AC_HALF_PERIOD_MAX * 3)
+
+
+
+#define K16_VOL_ERROR               IP_V(15)
+#define K16_ZC_TH             			IP_V(55)
+#define K16_ZC_MARGIN         			IP_V(14.6)
+
+#define K16_ZC_ACWAVE_TH            IP_V(60)
+
+#define K32_AC_LOST_TIME            hptsc_MsToTicks(25)
+//#define K32_AC_LOST_RECOVER_TIME   
+
+#define K16_BROWNOUT_TH									IP_V(78)
+#define K16_FAST_BROWNOUT_TH            IP_V(65)
+#define K16_FAST_BROWNOUT_TH_CLR        IP_V(70)
+#define K16_AC_RECOVERY_TH							IP_V(86)
+#define K16_FAST_BROWNOUT_RECOVERY_TH				IP_V(85)
+#define K16_AC_INST_RECOVERY_TH							IP_V(107.6)
+#define K16_SQUARE_INST_RECOVERY_TH							IP_V(85)
+
+#define K16_ACFAST_TH                   K16_BROWNOUT_TH
+#define K16_ACFAST_RECOVERY_TH          K16_FAST_BROWNOUT_RECOVERY_TH
+
+#ifdef CFG_AC_FOR_TURN_OFF_SYNC
+#define K32_ACFAST_TIME                 hptsc_MsToTicks(3)  
+#define K32_ACFAST_RECOVERY_TIME        hptsc_MsToTicks(3)
+#else
+#define K32_ACFAST_TIME                 hptsc_MsToTicks(1) 
+#define K32_ACFAST_RECOVERY_TIME        hptsc_MsToTicks(2)
+#endif
+
+#define K32_AC_RECYCLE_TIME             hptsc_MsToTicks(5)
+
+#define K32_INPUT_POWER_LIMIT           IPPOWER(1400) 
+#define K32_OPP_TIME                    hptsc_MsToTicks(500)
+
+//OVP/OVW
+//#define K16_AC_OVP_TH                 IP_V(280)
+#define K16_AC_OVP_TH                 IP_V(300)
+//#define K16_AC_OVP_TH                   IP_V(310)
+
+#define K16_AC_OVW_TH                   IP_V(275)
+#define K16_AC_OVP_RECOVER_TH           IP_V(268)
+
+
+#define K32_BROWNOUT_TIME								hptsc_MsToTicks(90)
+#define K32_BROWNOUTSLOW_TIME           hptsc_MsToTicks(500)
+
+//2015-11-01
+//#define K32_AC_RECOVERY_TIME						  hptsc_MsToTicks(200)
+#define K32_AC_RECOVERY_TIME								hptsc_MsToTicks(100)
+
+#define K32_FAST_BROWNOUT_RECOVERY_TIME			hptsc_MsToTicks(1) //in case AC is OK
+
+#define K32_PRI_HS_OTP_TIME					        hptsc_MsToTicks(500)
+#define K32_PRI_HS_OTP_Clr_TIME					    hptsc_SecToTicks(300)
+
+#define K32_PRI_HS_OTW_TIME                 hptsc_MsToTicks(500)
+#define K32_PRI_HS_OTW_Clr_TIME             hptsc_MsToTicks(500)
+
+
+//#define K16_BLACKOUT_TH									IP_V(50)
+//#define K16_BLACKOUT_RECOVERY_TH				IP_V(84.7)
+
+//#define K16_BLACKOUT_TH									IP_V(20)
+//#define K16_BLACKOUT_RECOVERY_TH				IP_V(50)
+//#define K32_BLACKOUT_TIME								hptsc_MsToTicks(3.25)
+
+//2015-11-01
+#define K16_BLACKOUT_TH									IP_V(35)
+#define K16_BLACKOUT_RECOVERY_TH				IP_V(45)
+#define K32_BLACKOUT_TIME								hptsc_MsToTicks(25)
+
+
+#define K32_BLACKOUT_LOW_TIME						hptsc_MsToTicks(28) //for lower voltage
+#define K32_BLACKOUT_HIGH_TIME					hptsc_MsToTicks(23) //for higher voltage
+
+#define K16_BULK_OK_TH							IP_BULKV(360)
+
+
+//#define K16_BULK_NOK_TH							IP_BULKV(290)
+//#define K16_BULK_NOK_TH							IP_BULKV(300)
+//#define K16_BULK_NOK_TH							IP_BULKV(320)
+//#define K16_BULK_NOK_TH							IP_BULKV(315)
+//#define K16_BULK_NOK_TH							IP_BULKV(310)
+#define K16_BULK_NOK_TH							IP_BULKV(305)
+
+#define K16_BULK_360V               IP_BULKV(360)
+#define K16_BULK_355V               IP_BULKV(355)  
+#define K16_BULK_350V               IP_BULKV(350)  
+
+//#define K16_BULK_OV_TH						IP_BULKV(450)
+#define K16_BULK_OV_TH							IP_BULKV(440)
+
+#define K16_FAST_BULK_OV_TH         IP_BULKV(450)
+
+#define K16_BULK_UV_TH              IP_BULKV(380)
+#define K16_BULK_CLR_UV_TH          IP_BULKV(401)   
+
+#define K16_PFC_NOK_TH              IP_BULKV(380)
+#define K16_PFC_OK_TH               IP_BULKV(401)
+
+#define K32_PRI_HS_OCP_TIME         hptsc_MsToTicks(500)
+
+#define K32_BULK_OK_TIME						hptsc_MsToTicks(10)
+
+//#define K32_BULK_NOK_TIME						hptsc_UsToTicks(500)
+#define K32_BULK_NOK_TIME						hptsc_MsToTicks(1)
+//#define K32_BULK_NOK_TIME						hptsc_MsToTicks(2)
+//#define K32_BULK_NOK_TIME						hptsc_MsToTicks(30)
+
+
+//#define K32_BULK_OV_TIME						hptsc_MsToTicks(1)
+//#define K32_BULK_OV_TIME						hptsc_MsToTicks(95)
+#define K32_BULK_OV_TIME						hptsc_MsToTicks(100)
+
+//#define K32_FAST_BULK_OV_TIME       hptsc_MsToTicks(15)
+#define K32_FAST_BULK_OV_TIME       hptsc_MsToTicks(20)
+
+
+//#define K32_BULK_OV_CLR_TIME				hptsc_MsToTicks(1)
+#define K32_BULK_OV_CLR_TIME				hptsc_MsToTicks(10)
+
+#define K32_BULK_UV_TIME            hptsc_MsToTicks(150) 
+#define K32_BULK_CLR_UV_TIME        hptsc_MsToTicks(50)
+
+#define K32_PFC_OK_TIME             hptsc_MsToTicks(50)
+#define K32_PFC_NOK_TIME            hptsc_MsToTicks(50)
+
+#define K32_AC_OV_TIME						  hptsc_MsToTicks(100)
+
+//#define K32_AC_OV_TIME						  hptsc_MsToTicks(1)
+
+#define K32_AC_OV_CLR_TIME				  hptsc_MsToTicks(30)
+//#define K32_AC_OV_CLR_TIME				  hptsc_MsToTicks(1)
+
+#define INPUT_VOL_MARGIN            IP_V(90)      
+
+//TSET control
+#define K16_HIGH_LINE_TH						IP_V(185)
+#define K16_LOW_LINE_TH 						IP_V(170)
+#define K16_TSET_HIGH_TH 						IP_V(185)
+#define K16_TSET_LOW_TH 						IP_V(170)
+#define K16_TSET_LOW_FAST_TH				IP_V(170)
+#define K16_TSET_BULK_LOW_TH				IP_BULKV(375)
+#define K16_TSET_BULK_HIGH_TH				IP_BULKV(380)
+#define K32_TSET_LOW_TIME					  hptsc_MsToTicks(1)
+#define K32_TSET_TIMEOUT 					  hptsc_MsToTicks(100) //For bulk OK timeout
+
+//Phase Control
+#define K16_VOLT_TWO_PHASE_LOW_THD					IP_V(180)
+#define K16_VOLT_TWO_PHASE_HIGH_THD					IP_V(245)
+#define K16_VOLT_ONE_OR_TWO_PHASE_LOW_THD		IP_V(200)
+#define K16_VOLT_ONE_OR_TWO_PHASE_HIGH_THD	IP_V(240)
+
+//2016-04-26
+#define K16_CURR_ONE_PHASE					        IP_A_IIN1(1.9) //2.1A on power meter
+#define K16_CURR_TWO_PHASE_L				        IP_A_IIN1(2.1) //2.3A on power meter
+#define K16_CURR_TWO_PHASE_H				        IP_A_IIN1(2.6) //2.6A on power meter
+
+#define K16_BULK_PHASE_CTRL_TH_H		        IP_BULKV(380)
+#define K16_BULK_PHASE_CTRL_TH_L		        IP_BULKV(375)
+#define K32_PHASE_HIGH_TIME					        hptsc_MsToTicks(1)
+#define K32_PHASE_TIMEOUT 					        hptsc_MsToTicks(100) //For bulk OK timeout
+/******************************** TYPEDEFS ***********************************/
+
+
+/********************************* IMPORTS************************************/
+
+/********************************* EXPORTS************************************/
+
+/********************************* GLOBALS ***********************************/
+volatile bool bHWOVP = FALSE;
+bool bTwoPhasePFC = TRUE;
+
+bool bOTP_Recovery_StartCount;
+
+/********************************** LOCALS ***********************************/
+static uint32_t analog_calcRMS(uint32_t u32SqrtArgSum, uint32_t u32SampleCnt);
+static void analog_handleTemperatureSense(void);
+static void analog_handleBulkVolt(void);
+//static void analog_handleACCurrent(void);
+//static void analog_handleACVin(void);
+void analog_handleACPower(void);
+volatile static uint32_t adc_corr[NUMBER_OF_ANALOG_VALUES];
+//static uint32_t adc_accumSquared[NUMBER_OF_ANALOG_VALUES];
+
+//Flag=TRUE or FALSE
+static bool    bACLost_Fast = FALSE ;// AC input lost in 3ms
+static bool    bACOk = FALSE;   // AC input is confirmed okay
+static bool    bBulkOK = FALSE;   // Bulk volt is confirmed okay
+
+bool    bACOVP  = FALSE; 
+bool    bACOVW  = FALSE;
+bool    bBulkOV = FALSE;   // Bulk volt is confirmed OV
+bool    bBulkUV = FALSE; 
+bool    bPFCFault = FALSE;
+
+bool    bOPP = FALSE;
+
+//static bool    bBrownOut = TRUE;       // Ac Brown out condition is met, psu may prepare for shutdown
+static bool    bBlackOut = TRUE;       // Ac Black out condition is met, psu may prepare for shutdown
+static bool    bOCP = FALSE;    // Primary input OCP
+static bool    bOTP = FALSE;    // Primary HS OTP
+ bool    bOTW = FALSE;    // Primary HS OTW
+static bool    bTemper_rise = FALSE;
+
+//static bool    bOTW = FALSE;    // Primary HS OTW
+static bool    bInputRise = FALSE;
+
+bool    bTSET = FALSE;
+//static bool    bTSetIOHigh=TRUE; //Default is High
+
+bool bSquare_wave = FALSE;
+
+//Ticket for timeout
+static HptscTicks_t ts_bulk;
+static HptscTicks_t ts_temp;
+static HptscTicks_t ts_IpVolt;
+//static HptscTicks_t ts_acIinVolt;
+
+//static HptscTicks_t ts_AC;
+	
+volatile static uint16_t u16IpRectVoltInst = 0; 		//Instantaneous rectified input voltage, Q13
+//volatile static uint16_t u16IpRectVoltInstQ15 = 0; 		//Instantaneous rectified input voltage, Q15
+uint16_t u16IpRectVoltInstQ15 = 0;
+volatile static uint16_t u16IpRectCurrInstIIN1 = 0; 		//Instantaneous rectified input current, Q13, IIN 1
+//volatile static uint32_t u32IpRectCurrInstIIN2 = 0; 		//Instantaneous rectified input current, Q13, IIN 2
+static uint32_t u32IpVoltSumOfSquare = 0;						//sum of square of input voltage, Q26
+
+static uint32_t u32IpCurrSumOfSquare = 0;						//sum of square of input Current
+static uint32_t u32IpPowerSum = 0;									//sum of input power
+
+uint16_t u16IpVoltInstMax = 0;
+uint16_t u16LPFIpVoltInst = 0;
+uint8_t u8IpSampleCnt = 0;									//number of sample in two ZCD period
+//static uint32_t u32IpCurrInstSampleCnt = 0;					//number of Instantaneous rectified input current
+//static uint32_t u32IpPowerInstSampleCnt = 0;				//number of Instantaneous rectified input power
+//static uint16_t u16IpVoltRMS = 0;										//RMS of input voltage, Q15
+//static uint16_t u16IpCurrentRMS = 0;								//RMS of input Current, Q15
+uint16_t u16IpPower = 0;											//input power, Q15
+uint16_t u16IpCurrentRMS=0;
+uint16_t u16IpVoltRMS=0;
+uint16_t u16IpVoltRMSAvg = 0;								//Average RMS of input voltage, Q15
+
+static uint16_t u16InstRecoveryTh = K16_AC_INST_RECOVERY_TH;
+
+static uint16_t u16IpCurrentRMSAvg = 0;							//Average RMS of input Current, Q15
+uint16_t u16IpPowerAvg = 0;								  //Average of input power, Q15
+static uint16_t u16IpBulkVoltAvg = 0;								//Average of Bulk Voltage, Q15
+
+uint16_t u16IpBulkVoltInst = 0;						  //inst of Bulk Voltage, Q15
+
+static uint16_t u16ADCHeatSinkTemperatureAvg = 0;		//Average of heat sink temp sense, Q12
+//static uint16_t u16ADCAmbientTemperatureAvg = 0;		//Average of ambient temp sense, Q12
+
+static uint16_t u16HeatSinkTemperature = 0;				//Average of heat sink temp sense((real temperature<<8)||K8_NTC_TEMP_OFFSET), Q10
+static uint16_t u16AmbientTemperature = 0;
+
+uint16_t u16HeatSinkTemperatureADCValue = 0;
+uint16_t u16TmpTemperature = 0;
+
+//static uint32_t u32IpVoltInstAvg = 0;								//Average inst voltage
+
+//static uint16_t u16IpVoltRMS = 0;
+
+uint16_t u16State_time_count = 0;
+
+
+
+//bool   u8_BulkOVP_Counter = 0;
+uint16_t u16BulkOVP_Counter = 0;
+
+//static bool bZeroCrossing_ACWave;// for AC wave checking
+static bool bZeroCrossing;													//TRUE-ZCD, FALSE-no ZCD
+static bool bAC_lost = FALSE;                               //TRUE-AC lost
+static uint32_t  u32AcHalfPeriod = K32_AC_HALF_PERIOD_MIN;   // Measured AC half period
+static uint32_t  u32AcHalfPeriodAvg = K32_AC_HALF_PERIOD_MAX;
+FreqStateType    InputFreqState_e = INPUT_FREQUENCY_LOW;   // Input Freq State variable
+static bool bIpvoltRMSReady = FALSE;
+#ifndef CFG_DISABLE_INPUT_VOL_RISE_SUDDEN
+static bool bIpVoltRiseShutDownSynchFET = FALSE;
+#endif
+
+//Average samples or RMS
+//static T_movingAvg32 s_avgInstVolt;
+static T_movingAvg32 s_avgAcHalfPeriod;
+static T_movingAvg32 s_avgRMSCurrent;
+static T_movingAvg32 s_avgRMSVolt;
+//static T_movingAvg32 s_avgIpPower;
+static T_movingAvg32 s_avgADCHeatSinkTemperature;
+//static T_movingAvg32 s_avgAmbientTemperature;
+static T_movingAvg32 s_avgBulkVolt;
+
+uint32_t test = 0;
+/*
+uint32_t	atimer_timer_us;
+uint32_t	atimer_timer_ms;
+uint32_t	atimer_us_ms;
+*/
+/*************************** SOURCE CODE INCLUDES ****************************/
+
+/*note for ADC2Temperature_table:
+note 1: NTC ADC should be shifted (adc_corr[ADC_NTC_TEMP_IDX]>>2), limit it to 10bits
+note 2: In order to report a positive temperature, added +50 degree(offset) in below table
+on secondary side, should remove this offset(-50) before reporting
+*/
+/*******************************************************************************
+* uint32_t movingAvg32(uint32_t u32CurrSample, T_movingAvg32 *pTmovingAvg)
+*
+* Input  :  Sample data and T_movingAvg32 structure
+*
+* Output :  32 Moving Averageed data
+*
+* Description: only for 32 Moving Averageed
+*
+* Notes:
+******************************************************************************/
+static uint32_t movingAvg32(uint32_t u32CurrSample, T_movingAvg32 *pTmovingAvg)
+{
+    if(pTmovingAvg == NULL)
+	  {
+		    return 0;
+	  }
+	  pTmovingAvg->u64SampleSum -= pTmovingAvg->u32Buff[pTmovingAvg->bufPtr];
+	  pTmovingAvg->u64SampleSum += u32CurrSample;
+	  pTmovingAvg->u32Buff[pTmovingAvg->bufPtr] = u32CurrSample;
+	
+	  //#define K8_MOVING_AVG_BUFF_SIZE 32	//Array size is 32
+	  pTmovingAvg->bufPtr = (pTmovingAvg->bufPtr +1)%K8_MOVING_AVG_BUFF_SIZE;
+	
+	  return pTmovingAvg->u64SampleSum>>5;
+}
+/*******************************************************************************
+* void analog_calcRMS(uint32_t u32SqrtArgSum, uint32_t u32SampleCnt)
+*
+* Input: Squared data and number of samples
+*
+* Description: calculate root of square data, return Q15 data
+*       .
+*
+* Notes:
+*******************************************************************************/
+static  uint32_t analog_calcRMS(uint32_t u32SqrtArgSum, uint32_t u32SampleCnt)
+{
+    uint32_t u32Rootsq, x;
+	  uint32_t u32TempVal;
+	  uint32_t u32SqrtArg;
+	
+	  if(u32SampleCnt <= 0)
+	  {
+		    return 0;
+	  }
+	
+	  u32SqrtArg = (uint32_t)((double)u32SqrtArgSum/u32SampleCnt+0.5);
+
+	  if ( u32SqrtArg == 0 ) return 0; 								  // undefined result
+	  if ( u32SqrtArg == 1 ) return 1; 								  // identity
+	  u32Rootsq = 0;                     							  // integer square root
+	
+	  for( x=0x8000; x>0; x=x>>1 )
+	  {                                 							  // 16 bit shift
+		    u32Rootsq |= x;             									// possible bit in root
+		    u32TempVal = u32Rootsq*u32Rootsq; 						// fast unsigned multiply
+		    if (u32TempVal == u32SqrtArg) break; 					// exact, found it
+		    if (u32TempVal > u32SqrtArg) u32Rootsq ^= x; 	// too large, reverse bit
+	  }
+	  //Screen by kylegao 2015-11-17
+	  //return (u32Rootsq<<2); // approximate root, 13bits<<2
+	  return (u32Rootsq<<3); // approximate root, 12bits<<3
+}
+
+/*******************************************************************************
+* void analog_metering(void);
+*
+* Input  :  N/A
+*
+* Output :  N/A
+*
+* Description: scan all ADC channel and calibrate it by VREFINT_CAL
+*  This function must be called regularly from the main thread.
+*
+* Notes:
+******************************************************************************/
+void analog_metering(void)
+{
+  static uint32_t temper_count = 0;  
+	//100us interval => calc all corrected values
+    if (hptsc_IsElapsedRepetitive(&ts_bulk, K32_BULK_INTERVAL))
+    {		
+			  adc_corr[ADC_BULK_VOLT_IDX] = adc_raw[ADC_BULK_VOLT_IDX];
+			
+        analog_handleBulkVolt();
+			
+			 //GPIOA->ODR ^= (1<<5);
+	
+			  if(u16State_time_count)
+				{
+				    u16State_time_count--;	
+				}
+    }
+
+		//1ms interval => calc temperature sense
+		if (hptsc_IsElapsedRepetitive(&ts_temp, K32_TEMP_INTERVAL))
+    {
+		
+			  //adc_corr[ADC_TS_SYS_IDX] = adc_raw[ADC_TS_SYS_IDX];
+			  adc_corr[ADC_NTC_TEMP_IDX] = adc_raw[ADC_NTC_TEMP_IDX];
+			 
+			  
+				analog_handleTemperatureSense();
+
+    }
+}
+
+/*******************************************************************************
+* void analog_handleACVin(void)
+*
+* Input  :  AC VIN(L&N), AC VIN
+*
+* Output :  N/A
+*
+* Description: Caculate Instantaneous voltage, square of Voltage
+* if MAX Half AC period is 16ms, totaly 64 samples(a sample/250us)
+* u32IpVoltSumOfSquare is 32bits, so MAX of each sample not exceed: 
+*	MAX sample value<(2^32)/64=2^26. so inst volt is Q13.
+* 
+* Notes:
+******************************************************************************/
+
+
+static void analog_handleACVin(void)
+{
+    static uint16_t u16IpVoltPeak = 0;
+//	  static uint16_t u16IpVoltPeriod = 0;
+	
+	  //Use Volt Live&Neutral for caculation, ADC_AC_VOLT_IDX as reserved
+	  if(adc_corr[ADC_NEUTRAL_VOLT_IDX] > adc_corr[ADC_LIVE_VOLT_IDX])
+	  {
+        u16IpRectVoltInst = (adc_corr[ADC_NEUTRAL_VOLT_IDX] - adc_corr[ADC_LIVE_VOLT_IDX])<<1; //Q13
+	  }
+	  else
+	  {
+		    u16IpRectVoltInst = (adc_corr[ADC_LIVE_VOLT_IDX] - adc_corr[ADC_NEUTRAL_VOLT_IDX])<<1; //Q13
+	  }
+
+	
+	  //Detect input rising time
+	  if(u16IpRectVoltInst > u16IpVoltPeak)
+	  {
+		    u16IpVoltPeak = u16IpRectVoltInst;
+		    bInputRise = TRUE;
+	  }
+	  else
+	  {
+		    bInputRise = FALSE;
+	  }
+	
+	  //Square of Instantaneous rectified input voltage, Q26 
+	  u32IpVoltSumOfSquare += u16IpRectVoltInst*u16IpRectVoltInst;
+	  u8IpSampleCnt++;
+	
+	  u16IpRectVoltInstQ15 = u16IpRectVoltInst<<2;
+	  //Average instantaneous voltage
+	  //u32IpVoltInstAvg = movingAvg32(u16IpRectVoltInst, &s_avgInstVolt);
+
+}
+
+
+
+/*******************************************************************************
+* void analog_handleACCurrent(void)
+*
+* Input  :  ADC Current
+*
+* Output :  N/A
+*
+* Description: Caculate Instantaneous current, square of current
+* if MAX Half AC period is 16ms, totaly 64 samples(a sample/250us)
+* u32IpCurrSumOfSquare is 32bits, so MAX of each sample not exceed: 
+*	MAX sample value<(2^32)/64=2^26. so inst volt is Q13.
+* Notes:
+******************************************************************************/
+static void analog_handleACCurrent(void)
+{
+	#if( Cisco_770W_RSP2 == POWER_SUPPLY_MODEL )
+	//Error checking? adc_corr[ADC_IIN_1_IDX]<K16_IIN1_ADC_OFFSET
+	if(adc_corr[ADC_IIN_1_IDX]>K16_IIN1_ADC_OFFSET)
+	{
+		u16IpRectCurrInstIIN1 = (adc_corr[ADC_IIN_1_IDX]-K16_IIN1_ADC_OFFSET)<<1; //Q13
+	}
+	else
+	{
+		u16IpRectCurrInstIIN1=0;
+	}
+	#elif (Cisco_650W_RSP1 == POWER_SUPPLY_MODEL)
+	u16IpRectCurrInstIIN1 = (adc_corr[ADC_IIN_2_IDX])<<1; //Q13
+	#endif
+	//Square of Instantaneous rectified input current, Q26
+	u32IpCurrSumOfSquare += u16IpRectCurrInstIIN1*u16IpRectCurrInstIIN1;
+	//u32IpCurrInstSampleCnt++;
+}
+
+/*******************************************************************************
+* void analog_handleAC_Vin_Iin(void)
+*
+* Input  :  ADC Current
+*
+* Output :  N/A
+*
+* Description: Caculate Instantaneous current, square of current
+* if MAX Half AC period is 16ms, totaly 64 samples(a sample/250us)
+* u32IpCurrSumOfSquare is 32bits, so MAX of each sample not exceed: 
+*	MAX sample value<(2^32)/64=2^26. so inst volt is Q13.
+* Notes:
+******************************************************************************/
+void analog_handleAC_Vin_Iin(void)
+{
+    uint16_t u16Temp = 0;
+	  uint32_t u32Temp = 0;
+	  //static unsigned corr;
+	
+	  //corr = (VREFINT_CAL << ADC_CORR_SHIFT) / adc_raw[AV_VREF_IDX];
+	
+	  //Vin
+    //adc_corr[ADC_LIVE_VOLT_IDX] =
+    //        (adc_raw[ADC_LIVE_VOLT_IDX] * corr) >> (ADC_CORR_SHIFT);
+	  //adc_corr[ADC_NEUTRAL_VOLT_IDX] =
+    //        (adc_raw[ADC_NEUTRAL_VOLT_IDX] * corr) >> (ADC_CORR_SHIFT);
+	
+	  adc_corr[ADC_LIVE_VOLT_IDX] = adc_raw[ADC_LIVE_VOLT_IDX];
+		adc_corr[ADC_NEUTRAL_VOLT_IDX] = adc_raw[ADC_NEUTRAL_VOLT_IDX];
+	
+	  //Use Volt Live&Neutral for caculation, ADC_AC_VOLT_IDX as reserved
+	  if(adc_corr[ADC_NEUTRAL_VOLT_IDX] > adc_corr[ADC_LIVE_VOLT_IDX])
+	  {
+        u16IpRectVoltInst = adc_corr[ADC_NEUTRAL_VOLT_IDX] - adc_corr[ADC_LIVE_VOLT_IDX]; //Q12
+	  }
+	  else
+	  {
+		    u16IpRectVoltInst = adc_corr[ADC_LIVE_VOLT_IDX] - adc_corr[ADC_NEUTRAL_VOLT_IDX]; //Q12
+	  }
+		
+		//Square of Instantaneous rectified input voltage, Q24 
+	  u32IpVoltSumOfSquare += u16IpRectVoltInst*u16IpRectVoltInst;
+	  u8IpSampleCnt++;
+		
+		u16Temp = u16IpRectVoltInst<<3;//Q15
+		//LPF
+		//Y[n]=aX[n]+(1-a)Y[n-1]
+		//a=2^(-4)=0.0625, fs=18.94444KHz, fz=18.944k*0.0625/[2*3.14*(1-0.0625)]=201Hz
+		//Y[n]=(X[n]>>4) + Y[n-1]- (Y[n-1]>>4) ---> Y[n]<<16=X[n]<<12 + Y[n-1]<<16- Y[n-1]<<12
+		u32Temp = (u16Temp<<12) + (u16LPFIpVoltInst<<16) - (u16LPFIpVoltInst<<12);
+		
+		u16LPFIpVoltInst = u32Temp>>16;
+		
+		
+		if(u8IpSampleCnt >= 255)
+	  {
+		    u8IpSampleCnt = 255;    
+		}
+	
+	  u16IpRectVoltInstQ15 = u16IpRectVoltInst<<3;
+		
+		//Iin
+		//adc_corr[ADC_IIN_2_IDX] =
+    //        (adc_raw[ADC_IIN_2_IDX] * corr) >> (ADC_CORR_SHIFT);
+		adc_corr[ADC_IIN_2_IDX] = adc_raw[ADC_IIN_2_IDX];
+		
+		u16IpRectCurrInstIIN1 = adc_corr[ADC_IIN_2_IDX]; //Q12
+		
+		u32IpCurrSumOfSquare += u16IpRectCurrInstIIN1*u16IpRectCurrInstIIN1; //Q24
+		
+}
+/*******************************************************************************
+* void analog_handleACPower(void)
+*
+* Input  :  AC VIN(L&N), AC VIN
+*
+* Output :  N/A
+*
+* Description: Caculate Instantaneous power, square of power
+*
+*
+* Notes:
+******************************************************************************/
+void analog_handleACPower(void)
+{
+    u32IpPowerSum += u16IpRectVoltInst*u16IpRectCurrInstIIN1; //Q24
+	  //u32IpPowerInstSampleCnt++;
+}
+
+/*******************************************************************************
+* void analog_handleBulkVolt(void)
+*
+* Input  :  adc_corr[ADC_BULK_VOLT_IDX]
+*
+* Output :  N/A
+*
+* Description: average bulk voltage
+*
+*
+* Notes:
+******************************************************************************/
+static void analog_handleBulkVolt(void)
+{
+	  static uint16_t u16BulkVoltTemp = 0;
+	
+	  u16BulkVoltTemp = adc_corr[ADC_BULK_VOLT_IDX]<<3;
+	
+	  u16IpBulkVoltAvg = movingAvg32(u16BulkVoltTemp, &s_avgBulkVolt);//Q15
+	
+	  u16IpBulkVoltInst = (u16IpBulkVoltInst + u16BulkVoltTemp)>>1;
+}
+
+/*******************************************************************************
+* static void analog_handleTemperatureSense(void)
+*
+* Input  :  temperature ADC 
+*
+* Output :  N/A
+*
+* Description: Averaged ADC and Real temperature
+*
+*
+* Notes:
+******************************************************************************/
+static void analog_handleTemperatureSense(void)
+{
+//	uint16_t u16ADCOffset = 0; 
+	uint16_t u16HeatSinkTemperatureTemp = 0;
+//	uint16_t u16AmbientTemperatureTemp = 0;  
+	
+	//HeatSink Temperature
+	u16HeatSinkTemperatureTemp = adc_corr[ADC_NTC_TEMP_IDX]<<3;
+	
+	//u16HeatSinkTemperatureADCValue = adc_corr[ADC_NTC_TEMP_IDX];
+	
+	//u16ADCHeatSinkTemperatureAvg = movingAvg32(adc_corr[ADC_NTC_TEMP_IDX]<<3, &s_avgADCHeatSinkTemperature);
+	u16ADCHeatSinkTemperatureAvg = movingAvg32(u16HeatSinkTemperatureTemp, &s_avgADCHeatSinkTemperature); //Q15
+}
+
+/*******************************************************************************
+* void analog_ChkACWave(void)
+*
+* Input  :  Maximum  of input voltage
+*
+* Output :  N/A
+*
+* Description:  Distinguishing the square wave and sine wave
+*
+*
+* Notes:
+******************************************************************************/
+void analog_ChkACWave(void)
+{
+	  uint16_t u16Temp = 0;
+    //uint8_t  u8Cnt = 0;
+	  //static HptscTicks_t ts_ticketSum = 0;
+	  //static HptscTicks_t ts_ACWaveElapsedTicket = 0;
+	  //ts_ticketSum += hptsc_ElapsedTicket(&ts_ACWaveElapsedTicket);
+	
+	  u16Temp = u16IpVoltRMS + K16_VOL_ERROR;//K16_VOL_ERROR:15V
+	
+	  if(u16IpVoltInstMax < u16LPFIpVoltInst)
+		{
+		    u16IpVoltInstMax = u16LPFIpVoltInst;  
+		}
+		if (hptsc_IsElapsedRepetitive(&ts_IpVolt, K32_IpVolt_INTERVAL))//15ms
+    {
+			 if(u16IpVoltInstMax > u16Temp)
+		   {  
+			     bSquare_wave = FALSE;  
+		   }
+		   else
+		   {
+		       bSquare_wave = TRUE;
+		   }
+			 u16IpVoltInstMax = 0;
+	  }
+}
+
+/*******************************************************************************
+* void analog_ChkZeroCross(void)
+*
+* Input  :  u16IpRectVoltInstQ15
+*
+* Output :  bZeroCrossing
+*
+* Description: Check if Ac input voltage is at zerocrossing
+*  And measure the input ac half period time
+*
+* Notes: This subroutine shall be run in mainloop
+******************************************************************************/
+void analog_ChkZeroCross(void)
+{
+		static HptscTicks_t ts_ticketSum;
+		static HptscTicks_t ts_AcPeriodElapsedTicket = 0;    		// AC Period Elapsed from last time
+		ts_ticketSum += hptsc_ElapsedTicket(&ts_AcPeriodElapsedTicket);
+    if (bZeroCrossing == TRUE)
+    {
+			  //#define K16_ZC_TH             			IP_V(55)
+			  //#define K16_ZC_MARGIN         			IP_V(14.6)
+			  // For Cisco 770w RSP2
+			  //#define IPV_RANGE   		(442.6)	// Input voltage measurable range, V
+        //#define IP_V(x)     		((uint16_t)((double)x*RESOLUTION/IPV_RANGE)) // Input voltage scale in Q15
+        // x*2.67/(10+2.67) = 3.3  x = 15.65955056
+			  // x*(1.65+1.65)/(499*2+1.65+1.65) = 15.65955056
+			  //                               x = 
+			  // For Cisco 650w RSP1
+			  // x*20/(20+1) = 3.3 x = 3.465
+			  // x*(7.5+7.5)/(301*4+7.5+7.5) = 3.465
+			  //                            x = 281.589
+			  if (u16IpRectVoltInstQ15 > (K16_ZC_TH + K16_ZC_MARGIN))
+        {
+            bZeroCrossing = FALSE;
+        }
+
+    }
+    else
+    {
+        if (u16IpRectVoltInstQ15 < K16_ZC_TH)
+        {
+            bZeroCrossing   = TRUE;
+            u32AcHalfPeriod = ts_ticketSum;
+            ts_ticketSum  = 0;
+					  ts_AcPeriodElapsedTicket = 0;//Reset timer
+        }
+    }
+    // Limit ts_ticketSum
+		//#define K32_MEASURABLE_PERIOD_MAX   hptsc_MsToTicks(13.5)
+    if (ts_ticketSum > K32_MEASURABLE_PERIOD_MAX)
+    {
+        u32AcHalfPeriod = K32_MEASURABLE_PERIOD_MAX;
+        ts_ticketSum = K32_MEASURABLE_PERIOD_MAX;
+    }
+}
+
+/*******************************************************************************
+* analog_ChkInputFreq
+*
+* Input: u16AcHalfPeriod
+*
+* Output: InputFreqState_e
+*
+* Description: Check if Ac input frequency is too high or too low
+*
+* Notes: This subroutine shall be run in mainloop
+*******************************************************************************/
+void analog_ChkInputFreq(void)
+{
+		static HptscTicks_t ts_ticketSum;
+	  static HptscTicks_t ts_AcFreqElapsedTicket = 0;    	 		// AC frequency Elapsed from last time
+		ts_ticketSum += hptsc_ElapsedTicket(&ts_AcFreqElapsedTicket);
+
+    switch(InputFreqState_e)
+    {
+        case INPUT_FREQUENCY_LOW:
+        {
+            /*Freq is abnormal, assume AcHalfPeriodAvg is half period max*/
+					  //#define K32_AC_HALF_PERIOD_MAX    	hptsc_MsToTicks(12.5)
+            u32AcHalfPeriodAvg = K32_AC_HALF_PERIOD_MAX;// maybe influence the sequence of shutdown if remove it
+
+            if (u32AcHalfPeriod < K32_AC_HALF_PERIOD_MAX)
+            {
+                // Freq is higher than mininum vale
+                //#define K32_FREQ_TEST_T             (K32_AC_HALF_PERIOD_MAX * 3)
+                if(ts_ticketSum > K32_FREQ_TEST_T)
+                {
+                    // Need to change state, check period to determine which state
+									  //#define K32_AC_HALF_PERIOD_MIN    	hptsc_MsToTicks(6.7)
+                    if (u32AcHalfPeriod < K32_AC_HALF_PERIOD_MIN)
+                    {
+                        InputFreqState_e = INPUT_FREQUENCY_HIGH;
+                    }
+                    else
+                    {
+                        InputFreqState_e = INPUT_FREQUENCY_NORMAL;
+                    }
+                    ts_ticketSum = 0;
+										ts_AcFreqElapsedTicket=0;//Reset timer
+                }
+            }
+            else
+            {
+                ts_ticketSum = 0;
+							  ts_AcFreqElapsedTicket=0;//Reset timer
+            }
+            break;
+        }
+
+        case INPUT_FREQUENCY_NORMAL:
+        {
+            if (u32AcHalfPeriod > K32_AC_HALF_PERIOD_MAX ||
+                u32AcHalfPeriod < K32_AC_HALF_PERIOD_MIN)
+            {
+								// Freq is not normal
+							  //#define K32_FREQ_TEST_T             (K32_AC_HALF_PERIOD_MAX * 3)
+                if(ts_ticketSum > K32_FREQ_TEST_T)
+                {
+                // Need to change state, check period to determine which state
+                    if (u32AcHalfPeriod < K32_AC_HALF_PERIOD_MIN)
+                    {
+                        InputFreqState_e = INPUT_FREQUENCY_HIGH;
+                    }
+                    else
+                    {
+                        InputFreqState_e = INPUT_FREQUENCY_LOW;
+                    }
+                    ts_ticketSum = 0;
+										ts_AcFreqElapsedTicket=0;//Reset timer
+                }
+            }
+            else
+            {
+
+                ts_ticketSum = 0;
+							  ts_AcFreqElapsedTicket=0;//Reset timer
+            }
+            break;
+        }
+
+        case INPUT_FREQUENCY_HIGH:
+        {
+            /*Freq is abnormal, assume AcHalfPeriodAvg is half period max*/
+            u32AcHalfPeriodAvg = K32_AC_HALF_PERIOD_MAX;//maybe influence the sequence of shutdown if remove it
+
+
+            if (u32AcHalfPeriod > K32_AC_HALF_PERIOD_MIN)
+            {
+            // Freq is not normal
+                if(ts_ticketSum > K32_FREQ_TEST_T)
+                {
+                // Need to change state, check period to determine which state
+                    if (u32AcHalfPeriod < K32_AC_HALF_PERIOD_MAX)
+                    {
+                        InputFreqState_e = INPUT_FREQUENCY_NORMAL;
+                    }
+                    else
+                    {
+                        InputFreqState_e = INPUT_FREQUENCY_LOW;		// history 5
+                    }
+                    ts_ticketSum = 0;
+										ts_AcFreqElapsedTicket=0;//Reset timer
+                }
+            }
+            else
+            {
+                ts_ticketSum = 0;
+							  ts_AcFreqElapsedTicket=0;//Reset timer
+            }
+            break;
+        }
+         default:
+        {
+            InputFreqState_e = INPUT_FREQUENCY_NORMAL;
+            break;
+        }
+    }
+}
+
+/*******************************************************************************
+* analog_CalcIpParameters(void)
+*
+* Input: u16IpVoltSumOfSq, u16IpCurSumOfSq, u16IpPowerSum, u16ACSampleCnt
+*
+* Output: u16IpCurRms, u16IpVoltRms, u16IpPower, u16IpCurRmsAvg,
+*           u16IpVoltRmsAvg, u16IpPowerAvg
+*
+* Description: Calculate input parameters V, I, Power rms values and Average
+*               values. Also update IpScalingFactor for PFC control
+*
+* Notes:
+*******************************************************************************/
+static void analog_CalcIpParameters(void)
+{
+		//uint16_t u16IpVoltRMS = 0;
+		//uint16_t u16IpCurrentRMS=0;
+		//uint16_t u16IpPower = 0;
+	  //static uint8_t u8TSETAssertcount = 0;
+	  static uint16_t u16IpVoltRMSTempAvg=0;
+	
+    //Calculate average ac half period
+		u32AcHalfPeriodAvg = movingAvg32(u32AcHalfPeriod, &s_avgAcHalfPeriod);
+	  //If input is normal,u8IpSampleCnt is approximately equal to 190 :190K/100
+		u16IpVoltRMS = analog_calcRMS(u32IpVoltSumOfSquare, u8IpSampleCnt); //Q15
+		u16IpVoltRMSAvg = movingAvg32(u16IpVoltRMS, &s_avgRMSVolt); //Q15
+		
+		u16IpCurrentRMS = analog_calcRMS(u32IpCurrSumOfSquare, u8IpSampleCnt); //Q15
+		u16IpCurrentRMSAvg = movingAvg32(u16IpCurrentRMS, &s_avgRMSCurrent);	//Q15
+		
+		//Screen by kylegao 2015-11-19
+		//u16IpPower = (u32IpPowerSum/u8IpSampleCnt)>>11;	//Q15
+		//u16IpPower = (u32IpPowerSum/u8IpSampleCnt)>>9;	//Q15
+	  
+		//u16IpPowerAvg = movingAvg32(u16IpPower, &s_avgIpPower);
+		
+		
+	    //u16IpVoltRMSTempAvg = (u16IpVoltRMSTempAvg+u16IpVoltRMS)>>1;
+		
+		
+		u32IpVoltSumOfSquare = 0;
+		u32IpCurrSumOfSquare = 0;
+		u8IpSampleCnt = 0;
+		//u32IpCurrInstSampleCnt = 0;
+		//u32IpPowerInstSampleCnt = 0;
+}
+
+/*******************************************************************************
+* void analog_ChkInputCalc(void)
+*
+* Input: InputFreqState_e, bZeroCrossing
+*
+* Description: Check if it is the time to calculate Input ac parameters
+*       If input frequency is okay, calculate the parameter right after ZC is
+*       detected. If input frequency is abnormal, calculate the parameter in a
+*       fix time interval.
+*
+* Notes: This subroutine shall be run in mainloop
+*******************************************************************************/
+void analog_ChkInputCalc(void)
+{
+		static HptscTicks_t ts_ticketSum;
+	  static HptscTicks_t ts_AcRMSCalcElapsedTicket = 0;   		// RMS Calculation Elapsed from last time
+		ts_ticketSum += hptsc_ElapsedTicket(&ts_AcRMSCalcElapsedTicket);
+
+    if(InputFreqState_e == INPUT_FREQUENCY_NORMAL)
+    {
+				if(bZeroCrossing == TRUE)
+				{
+					  //#define hptsc_UsToTicks(us) hptsc_UsToTicksUserType(HptscTicks_t, us)
+					  //#define hptsc_UsToTicksUserType(type, us) \
+            //        ROUND_TO(type, (double) CONFIG_HPTSC_HZ * (us) / 1000000.0)
+					  //#define CONFIG_HPTSC_HZ                 (SYSTEM_CLOCK_HZ / 8)
+					  //#define SYSTEM_CLOCK_HZ                 48000000
+					  //#define ROUND_TO(type, val) \
+            //        ((type) ((val) < 0 ? (val) - 0.5 : (val) + 0.5))
+					  // CONFIG_HPTSC_HZ = 48000000/8 = 6000000
+					  // 6000000*0.5/1000000 = 3
+					  // ROUND_TO(type, 3) = 3+0.5 = 3.5
+						//if(ts_ticketSum > (u32AcHalfPeriodAvg - hptsc_UsToTicks(0.5)))
+					  if(ts_ticketSum > (u32AcHalfPeriodAvg - hptsc_MsToTicks(0.5)))
+						{
+								analog_CalcIpParameters();
+								ts_ticketSum = 0;
+							  ts_AcRMSCalcElapsedTicket=0;//Reset timer
+							    uPFCFlags.b.bus_ctl = 0;
+						}
+				}
+    }
+    /*
+		else if(ts_ticketSum > K32_MEASURABLE_PERIOD_MAX || 
+			ts_ticketSum > (u32AcHalfPeriodAvg + hptsc_MsToTicks(1)))
+    {
+        analog_CalcIpParameters();
+        ts_ticketSum = 0;
+			  ts_AcRMSCalcElapsedTicket=0;//Reset timer
+    }
+		*/ //Maybe influence the shoutdown sequence if swap with below code
+    if ((ts_ticketSum > K32_AC_HALF_PERIOD_MAX)
+           || (ts_ticketSum > (u32AcHalfPeriodAvg + hptsc_MsToTicks(1))))
+    {
+        analog_CalcIpParameters();
+        ts_ticketSum = 0;
+			  ts_AcRMSCalcElapsedTicket=0;//Reset timer
+    }
+}
+
+/*******************************************************************************
+* void analog_ChkProtections(void)
+*
+* Input  :  N/A
+*
+* Output :  update OTP/Bulk OVP status
+*
+* Description: update OTP/Bulk OVP status
+*
+*
+* Notes:
+******************************************************************************/
+void analog_ChkProtections(void)
+{
+//    static HptscTicks_t ts_ticketOCPSum, ts_ticketOCPClrSum;
+//	  static HptscTicks_t ts_PriHS_OCP_ElapsedTicket = 0;   		// OTP Elapsed from last time
+//	  static HptscTicks_t ts_PriHS_OCP_CLR_ElapsedTicket = 0;   // Revovery Elapsed from last time  
+	
+	  static HptscTicks_t ts_ticketOTPSum, ts_ticketOTPClrSum;
+	  static HptscTicks_t ts_PriHS_OTP_ElapsedTicket = 0;   		// OTP Elapsed from last time
+	  static HptscTicks_t ts_PriHS_OTP_CLR_ElapsedTicket = 0;   // Revovery Elapsed from last time
+	
+	  static HptscTicks_t ts_ticketOTWSum, ts_ticketOTWClrSum;
+	  static HptscTicks_t ts_PriHS_OTW_ElapsedTicket = 0;   		// OTP Elapsed from last time
+	  static HptscTicks_t ts_PriHS_OTW_CLR_ElapsedTicket = 0;   // Revovery Elapsed from last time
+	
+	  static HptscTicks_t ts_ticketBulkOKSum, ts_ticketBulkOKClrSum;
+	  static HptscTicks_t ts_BulkOK_ElapsedTicket = 0;   				// OTP Elapsed from last time
+	  static HptscTicks_t ts_BulkOK_CLR_ElapsedTicket = 0;   		// Revovery Elapsed from last time
+	
+	  static HptscTicks_t ts_ticketBulkOVSum;//, ts_ticketBulkOVClrSum;
+	  static HptscTicks_t ts_BulkOV_ElapsedTicket = 0;   				// BulkOV Elapsed from last time
+    //static HptscTicks_t ts_BulkOV_CLR_ElapsedTicket = 0;   		// Revovery Elapsed from last time
+		
+	  static HptscTicks_t ts_ticketFastBulkOVSum;
+		static HptscTicks_t ts_Fast_BulkOV_ElapsedTicket = 0;
+		
+		static HptscTicks_t ts_ticketBulkUVSum, ts_ticketBulkUVClrSum;                    //ts_ticketBulkUVClrSum;
+	  static HptscTicks_t ts_BulkUV_ElapsedTicket = 0;   				
+		static HptscTicks_t ts_BulkUV_CLR_ElapsedTicket = 0;
+		
+	  static HptscTicks_t ts_ticketInputOVSum, ts_ticketInputOVClrSum;
+	  static HptscTicks_t ts_InputOV_ElapsedTicket = 0;   				// OVP Elapsed from last time
+	  static HptscTicks_t ts_InputOV_CLR_ElapsedTicket = 0;   		// Revovery Elapsed from last time
+	  
+		//static HptscTicks_t ts_ticketPFCOKSum, ts_ticketPFCOKClrSum;
+	  //static HptscTicks_t ts_PFCOK_ElapsedTicket = 0;   				// OTP Elapsed from last time
+	  //static HptscTicks_t ts_PFCOK_CLR_ElapsedTicket = 0;   		// Revovery Elapsed from last time
+    //static uint32_t ts_ticket_test = 0;
+		
+   // static HptscTicks_t ts_ticketInputOVWSum, ts_ticketInputOVWClrSum;
+	 // static HptscTicks_t ts_InputOVW_ElapsedTicket = 0;   				// OVW Elapsed from last time
+   //	static HptscTicks_t ts_InputOVW_CLR_ElapsedTicket = 0;   		// Revovery Elapsed from last time
+	 	static HptscTicks_t ts_ticketOPPSum;                    //ts_ticketBulkUVClrSum;
+	  static HptscTicks_t ts_OPP_ElapsedTicket = 0;   				
+//		static HptscTicks_t ts_OPP_CLR_ElapsedTicket = 0;
+    
+		//OPP
+		if(bOPP == FALSE)
+		{
+		    if(u16IpPower > K32_INPUT_POWER_LIMIT)
+				{
+				    if(ts_ticketOPPSum > K32_OPP_TIME)
+						{
+						    bOPP = TRUE;
+							  ts_ticketOPPSum = 0;
+							  ts_OPP_ElapsedTicket = 0;
+						}
+						else
+						{
+						    ts_ticketOPPSum += hptsc_ElapsedTicket(&ts_OPP_ElapsedTicket);
+						}
+				}
+				else
+				{
+				     ts_ticketOPPSum = 0;
+						 ts_OPP_ElapsedTicket = 0;
+				}
+		}
+		
+		//OCP Set
+		/*
+		if(bOCP == FALSE)
+		{
+		    ts_ticketOCPClrSum = 0;  
+        ts_PriHS_OCP_CLR_ElapsedTicket = 0;//Reset Timer 
+			  if(u16IpVoltRMSAvg > K16_VIN_100V)
+			  {
+				    if(u16IpVoltRMSAvg > K16_VIN_208V)
+			      {
+			          if(u16IpCurrentRMSAvg > K16_VIN_208V_OC_FAULT_LIMIT)
+				        {
+					          if(ts_ticketOCPSum >= K32_PRI_HS_OCP_TIME)
+							      {
+							          bOCP = TRUE;
+					
+			                  ts_ticketOCPSum = 0;
+			                  ts_PriHS_OCP_ElapsedTicket = 0;//Reset Timer
+							      }
+							      else
+		                {
+			                  ts_ticketOCPSum += hptsc_ElapsedTicket(&ts_PriHS_OCP_ElapsedTicket);
+		                }   
+					      }
+					      else
+					      {
+					          ts_ticketOCPSum = 0;
+			              ts_PriHS_OCP_ElapsedTicket = 0;//Reset Timer
+					      }
+			      }
+						else
+						{
+						    if(u16IpCurrentRMSAvg > K16_VIN_100V_OC_FAULT_LIMIT)
+				        {     
+							      if(ts_ticketOCPSum >= K32_PRI_HS_OCP_TIME)
+							      {
+							          bOCP = TRUE;
+					
+			                  ts_ticketOCPSum = 0;
+			                  ts_PriHS_OCP_ElapsedTicket = 0;//Reset Timer
+							      }
+							      else
+		                {
+			                  ts_ticketOCPSum += hptsc_ElapsedTicket(&ts_PriHS_OCP_ElapsedTicket);
+		                }   
+					      }
+					      else
+					      {
+					          ts_ticketOCPSum = 0;
+			              ts_PriHS_OCP_ElapsedTicket = 0;//Reset Timer
+					      }
+						}
+			  }
+		}
+		else
+		{
+		    ts_ticketOCPSum = 0;
+			  ts_PriHS_OCP_ElapsedTicket = 0;//Reset Timer
+			  if(u16IpVoltRMSAvg < K16_VIN_208V)
+			  {
+				    if(u16IpVoltRMSAvg < K16_VIN_100V)
+			      {
+			          if(u16IpCurrentRMSAvg < K16_VIN_100V_OC_FAULT_CLR_LIMIT)
+				        {
+					          if(ts_ticketOCPClrSum >= K32_PRI_HS_OCP_TIME)
+							      {
+							          bOCP = FALSE;
+					
+			                  ts_ticketOCPSum = 0;
+			                  ts_PriHS_OCP_CLR_ElapsedTicket = 0;//Reset Timer
+							      }
+							      else
+		                {
+			                  ts_ticketOCPClrSum += hptsc_ElapsedTicket(&ts_PriHS_OCP_CLR_ElapsedTicket);
+		                }   
+					      }
+					      else
+					      {
+					          ts_ticketOCPClrSum = 0;
+			              ts_PriHS_OCP_CLR_ElapsedTicket = 0;//Reset Timer
+					      }
+			      }
+						else
+						{
+						    if(u16IpCurrentRMSAvg < K16_VIN_100V_OC_FAULT_CLR_LIMIT)
+				        {     
+							      if(ts_ticketOCPClrSum >= K32_PRI_HS_OCP_TIME)
+							      {
+							          bOCP = TRUE;
+					
+			                  ts_ticketOCPClrSum = 0;
+			                  ts_PriHS_OCP_CLR_ElapsedTicket = 0;//Reset Timer
+							      }
+							      else
+		                {
+			                  ts_ticketOCPClrSum += hptsc_ElapsedTicket(&ts_PriHS_OCP_CLR_ElapsedTicket);
+		                }   
+					      }
+					      else
+					      {
+					          ts_ticketOCPClrSum = 0;
+			              ts_PriHS_OCP_CLR_ElapsedTicket = 0;//Reset Timer
+					      }
+						}
+			  }
+		}
+		*/
+		
+		//OTP Set
+
+		if(bOTP == FALSE)
+		{
+		    ts_ticketOTPClrSum = 0;  
+        ts_PriHS_OTP_CLR_ElapsedTicket = 0;//Reset Timer		
+
+        if(u16ADCHeatSinkTemperatureAvg <= K16_PRI_HS_OTP_THD) //
+				{
+				    if(ts_ticketOTPSum >= K32_PRI_HS_OTP_TIME)
+		        {
+			          bOTP = TRUE;
+			          ts_ticketOTPSum = 0;
+			          ts_PriHS_OTP_ElapsedTicket = 0;//Reset Timer
+		        }
+		        else
+		        {
+			          ts_ticketOTPSum += hptsc_ElapsedTicket(&ts_PriHS_OTP_ElapsedTicket);
+		        }   
+				}
+        else
+        {
+				    ts_ticketOTPSum = 0;   
+            ts_PriHS_OTP_ElapsedTicket = 0;//Reset Timer					
+        }					
+		}
+		else
+		{
+	      ts_ticketOTPSum = 0;
+			  ts_PriHS_OTP_ElapsedTicket = 0;//Reset Timer	
+			
+			  if(u16ADCHeatSinkTemperatureAvg >= K16_PRI_HS_OTP_CLR_THD) // clear OTP
+	      {
+		        if(ts_ticketOTPClrSum >= K32_PRI_HS_OTP_Clr_TIME)
+		        {
+			          bOTP = FALSE;
+							
+			          ts_ticketOTPClrSum = 0;
+			          ts_PriHS_OTP_CLR_ElapsedTicket = 0;//Reset Timer
+		        }
+		        else
+		        {
+			          ts_ticketOTPClrSum += hptsc_ElapsedTicket(&ts_PriHS_OTP_CLR_ElapsedTicket);
+		        }
+        }
+        else
+				{
+				    ts_ticketOTPClrSum = 0;
+            ts_PriHS_OTP_CLR_ElapsedTicket = 0;//Reset Timer					
+				}					
+		}
+		
+		
+		//OTW
+		if(bOTW == FALSE)
+		{
+		    ts_ticketOTWClrSum = 0;  
+        ts_PriHS_OTW_CLR_ElapsedTicket = 0;//Reset Timer		
+
+        if(u16ADCHeatSinkTemperatureAvg <= K16_PRI_HS_OTW_THD) //
+				{
+				    if(ts_ticketOTWSum >= K32_PRI_HS_OTW_TIME)
+		        {
+			          bOTW = TRUE;
+			          ts_ticketOTWSum = 0;
+			          ts_PriHS_OTW_ElapsedTicket = 0;//Reset Timer
+		        }
+		        else
+		        {
+			          ts_ticketOTWSum += hptsc_ElapsedTicket(&ts_PriHS_OTW_ElapsedTicket);
+		        }   
+				}
+        else
+        {
+				    ts_ticketOTWSum = 0;   
+            ts_PriHS_OTW_ElapsedTicket = 0;//Reset Timer					
+        }					
+		}
+		else
+		{
+	      ts_ticketOTWSum = 0;
+			  ts_PriHS_OTW_ElapsedTicket = 0;//Reset Timer	
+			
+			  if(u16ADCHeatSinkTemperatureAvg >= K16_PRI_HS_OTW_CLR_THD) // clear OTP
+	      {
+		        if(ts_ticketOTWClrSum >= K32_PRI_HS_OTW_Clr_TIME)
+		        {
+			          bOTW = FALSE;
+							
+			          ts_ticketOTWClrSum = 0;
+			          ts_PriHS_OTW_CLR_ElapsedTicket = 0;//Reset Timer
+		        }
+		        else
+		        {
+			          ts_ticketOTWClrSum += hptsc_ElapsedTicket(&ts_PriHS_OTW_CLR_ElapsedTicket);
+		        }
+        }
+        else
+				{
+				    ts_ticketOTWClrSum = 0;
+            ts_PriHS_OTW_CLR_ElapsedTicket = 0;//Reset Timer					
+				}					
+		}
+    
+		/*BulkOK as a shutdown signal send to secondary, but it don't have to shutdown primary*/
+		if(bBulkOK == FALSE) 
+		{
+		    ts_ticketBulkOKClrSum = 0;
+			  ts_BulkOK_CLR_ElapsedTicket = 0;//Reset Timer
+			  
+			  if(u16IpBulkVoltInst > K16_BULK_OK_TH)
+				{
+				    if(ts_ticketBulkOKSum >= K32_BULK_OK_TIME)
+						{
+						    bBulkOK = TRUE;
+							  //IO_Test_High();
+						}	
+            else
+						{
+						    ts_ticketBulkOKSum += hptsc_ElapsedTicket(&ts_BulkOK_ElapsedTicket);    
+            }							
+				}
+				else
+				{
+				    ts_ticketBulkOKSum = 0;
+            ts_BulkOK_ElapsedTicket = 0;//Reset Timer					
+				}
+		}
+		else
+		{
+		    ts_ticketBulkOKSum = 0;
+        ts_BulkOK_ElapsedTicket = 0;//Reset Timer		
+
+			  if(u16IpBulkVoltInst < K16_BULK_NOK_TH)
+				{
+				    if(ts_ticketBulkOKClrSum >= K32_BULK_NOK_TIME)	
+						{
+						    bBulkOK = FALSE;  
+                //IO_Test_Low();							
+						}
+						else
+						{
+						    ts_ticketBulkOKClrSum += hptsc_ElapsedTicket(&ts_BulkOK_CLR_ElapsedTicket);
+						}
+				}
+        else
+				{
+				    ts_ticketBulkOKClrSum = 0;
+					  ts_BulkOK_CLR_ElapsedTicket = 0;//Reset Timer
+				}					
+		}
+		
+	  //Bulk OV
+		if(bBulkOV == FALSE)
+		{
+			  //ts_ticketBulkOVClrSum = 0;
+			  //ts_BulkOV_CLR_ElapsedTicket = 0;//Reset Timer
+			
+				if(u16IpBulkVoltInst > K16_BULK_OV_TH)//440V
+				{
+					  if(u16IpBulkVoltInst > K16_FAST_BULK_OV_TH)//450V
+					  {
+						    //#define K32_BULK_OV_TIME						hptsc_MsToTicks(20)
+						    if(ts_ticketFastBulkOVSum >= K32_FAST_BULK_OV_TIME) 
+                {
+							      #ifdef CFG_ENABLE_TIMER14
+					          cal_setBulkVoltDuty(0);
+					          #endif
+							
+							      IO_SetBOVP();		    
+						        IO_disablePFC();
+							      bBulkOV = TRUE;
+							
+							      ts_ticketBulkOVSum = 0;
+							      ts_BulkOV_ElapsedTicket = 0;//Reset Timer
+                }	
+                else
+                {
+						        ts_ticketFastBulkOVSum += hptsc_ElapsedTicket(&ts_Fast_BulkOV_ElapsedTicket);
+                }							
+				    }
+						else 
+						{
+					      ts_ticketFastBulkOVSum = 0;
+							  ts_Fast_BulkOV_ElapsedTicket = 0;//Reset Timer
+							  if(ts_ticketBulkOVSum >= K32_BULK_OV_TIME)//100ms
+						    {
+						        #ifdef CFG_ENABLE_TIMER14
+					          cal_setBulkVoltDuty(0);
+					          #endif
+							
+							      IO_SetBOVP();		    
+						        IO_disablePFC();
+							      bBulkOV = TRUE;
+							
+							      ts_ticketBulkOVSum = 0;
+							      ts_BulkOV_ElapsedTicket = 0;//Reset Timer  
+						    }
+						    else
+						    {
+                    ts_ticketBulkOVSum += hptsc_ElapsedTicket(&ts_BulkOV_ElapsedTicket);
+						    }
+					   }
+				}
+				else
+				{
+				    ts_ticketBulkOVSum = 0;
+					  ts_BulkOV_ElapsedTicket = 0;//Reset Timer
+					  ts_ticketFastBulkOVSum = 0;
+						ts_Fast_BulkOV_ElapsedTicket = 0;//Reset Timer
+				}
+		}
+
+		//Not BulkUV
+		if(bBulkUV == FALSE)
+		{
+		    ts_ticketBulkUVClrSum = 0;
+				ts_BulkUV_CLR_ElapsedTicket = 0;
+			  if(u16IpBulkVoltInst < K16_BULK_UV_TH)//380V
+        {
+				    if(ts_ticketBulkUVSum > K32_BULK_UV_TIME)//50ms
+						{
+						    bBulkUV = TRUE;  
+							
+							  ts_ticketBulkUVSum = 0;
+							  ts_BulkUV_ElapsedTicket = 0;
+						}
+						else
+						{
+						    ts_ticketBulkUVSum += hptsc_ElapsedTicket(&ts_BulkUV_ElapsedTicket);
+						}
+				}	
+        else
+        {
+				    ts_ticketBulkUVSum = 0;
+					  ts_BulkUV_ElapsedTicket = 0;
+				}					
+		}
+		else
+		{
+		    ts_ticketBulkUVSum = 0;
+				ts_BulkUV_ElapsedTicket = 0;
+			  if(u16IpBulkVoltInst > K16_BULK_CLR_UV_TH)
+				{
+				    if(ts_ticketBulkUVClrSum > K32_BULK_CLR_UV_TIME)
+						{
+						    bBulkUV = FALSE;
+							
+							  ts_ticketBulkUVClrSum = 0;
+				        ts_BulkUV_CLR_ElapsedTicket = 0;
+						}
+						else
+						{
+						    ts_ticketBulkUVClrSum += hptsc_ElapsedTicket(&ts_BulkUV_CLR_ElapsedTicket);
+						}
+				}
+				else
+				{
+				    ts_ticketBulkUVClrSum = 0;
+				    ts_BulkUV_CLR_ElapsedTicket = 0;
+				}
+		}
+		/*
+		if(bPFCFault == FALSE)
+		{
+		    ts_ticketPFCOKSum = 0;
+        ts_PFCOK_ElapsedTicket = 0;//Reset Timer		
+
+			  if(u16IpBulkVoltInst < K16_PFC_NOK_TH)
+				{
+				    if(ts_ticketPFCOKClrSum >= K32_PFC_NOK_TIME)	
+						{
+						    bPFCFault = TRUE;  						
+						}
+						else
+						{
+						    ts_ticketPFCOKClrSum += hptsc_ElapsedTicket(&ts_PFCOK_CLR_ElapsedTicket);
+						}
+				}
+        else
+				{
+				    ts_ticketPFCOKClrSum = 0;
+					  ts_PFCOK_CLR_ElapsedTicket = 0;//Reset Timer
+				}					
+		}
+		else
+		{
+		    ts_ticketPFCOKClrSum = 0;
+			  ts_PFCOK_CLR_ElapsedTicket = 0;//Reset Timer
+			  
+			  if(u16IpBulkVoltInst > K16_PFC_OK_TH)
+				{
+				    if(ts_ticketPFCOKSum >= K32_PFC_OK_TIME)
+						{
+						    bPFCFault = FALSE;
+						}	
+            else
+						{
+						    ts_ticketPFCOKSum += hptsc_ElapsedTicket(&ts_PFCOK_ElapsedTicket);    
+            }							
+				}
+				else
+				{
+				    ts_ticketPFCOKSum = 0;
+            ts_PFCOK_ElapsedTicket = 0;//Reset Timer					
+				}
+		}
+	  */
+    //AC OVP
+	  if(bACOVP == FALSE)
+		{
+		    ts_ticketInputOVClrSum = 0;
+			  ts_InputOV_CLR_ElapsedTicket = 0;  //Reset Timer
+			  
+			  //#define K16_AC_OVP_TH                   IP_V(300)
+			  if(u16IpVoltRMSAvg > K16_AC_OVP_TH)
+				{
+				    if(ts_ticketInputOVSum >= K32_AC_OV_TIME)//100ms
+						{
+						    bACOVP = TRUE;
+							  //IO_Test_High();
+							
+                ts_ticketInputOVSum = 0;		
+                ts_InputOV_ElapsedTicket = 0; //Reset Timer						
+						}	
+            else
+						{
+						    ts_ticketInputOVSum += hptsc_ElapsedTicket(&ts_InputOV_ElapsedTicket);    
+						}							
+				}
+				else
+				{
+				    ts_ticketInputOVSum = 0;
+					  ts_InputOV_ElapsedTicket = 0; //Reset Timer
+				}
+		}
+		else
+		{
+		    ts_ticketInputOVSum = 0;
+			  ts_InputOV_ElapsedTicket = 0; //Reset Timer
+			
+			  //#define K16_AC_OVP_RECOVER_TH           IP_V(268)
+			  if(u16IpVoltRMSAvg < K16_AC_OVP_RECOVER_TH)
+				{
+				    if(ts_ticketInputOVClrSum > K32_AC_OV_CLR_TIME)//30ms
+						{
+						    bACOVP = FALSE;     
+							
+							  ts_ticketInputOVClrSum = 0;
+			          ts_InputOV_CLR_ElapsedTicket = 0;  //Reset Timer   
+						}	
+            else
+            {
+						    ts_ticketInputOVClrSum += hptsc_ElapsedTicket(&ts_InputOV_CLR_ElapsedTicket);       
+            }							
+				}
+				else
+				{
+				    ts_ticketInputOVClrSum = 0;
+			      ts_InputOV_CLR_ElapsedTicket = 0;  //Reset Timer    
+				}
+		}
+}
+
+/*******************************************************************************
+* bool ChkACWave_lost(void)
+*
+* Input  :  N/A
+*
+* Output :  
+*
+* Description: 
+*
+*
+* Notes:
+******************************************************************************/
+bool ChkACWave_lost(void)
+{
+    return bAC_lost;
+}
+
+/*******************************************************************************
+* uint16_t analog_GetIpVoltIns(void)
+*
+* Input  :  N/A
+*
+* Output :  u16IpRectVoltInstQ15
+*
+* Description: Return Instantaneous voltage
+*
+*
+* Notes:
+******************************************************************************/
+uint16_t analog_GetIpVoltIns(void)
+{
+	return u16IpRectVoltInstQ15; //Q15
+}
+
+/*******************************************************************************
+* uint16_t analog_GetIpVoltRMSAvg(void)
+*
+* Input  :  N/A
+*
+* Output :  u16IpVoltRMSAvg
+*
+* Description: Return averaged RMS voltage
+*
+*
+* Notes:
+******************************************************************************/
+uint16_t analog_GetIpVoltRMSAvg(void)
+{
+	return u16IpVoltRMSAvg; //Q15
+}
+
+/*******************************************************************************
+* uint16_t analog_GetCurrentRMSAvg(void)
+*
+* Input  :  N/A
+*
+* Output :  u16IpCurrentRMSAvg
+*
+* Description: Return averaged RMS voltage
+*
+*
+* Notes:
+******************************************************************************/
+uint16_t analog_GetIpCurrentRMSAvg(void)
+{
+	return u16IpCurrentRMSAvg; //Q15
+}
+
+
+uint16_t analog_GetIpRectCurrentInst(void)
+{
+    return u16IpRectCurrInstIIN1;//Q12
+}
+
+/*******************************************************************************
+* uint16_t analog_GetIpPowerAvg(void)
+*
+* Input  :  N/A
+*
+* Output :  u16IpPowerAvg
+*
+* Description: Return averaged power
+*
+*
+* Notes:
+******************************************************************************/
+uint16_t analog_GetIpPowerAvg(void)
+{
+	return u16IpPowerAvg; //Q15
+}
+
+/*******************************************************************************
+* uint16_t analog_GetHeatSinkTempADCAvg(void)
+*
+* Input  :  N/A
+*
+* Output :  u16ADCHeatSinkTemperatureAvg
+*
+* Description: Return averaged Temperature
+*
+*
+* Notes:
+******************************************************************************/
+uint16_t analog_GetHeatSinkTempADCAvg(void)
+{
+	return u16ADCHeatSinkTemperatureAvg; //Q15
+}
+
+/*******************************************************************************
+* uint16_t analog_GetHeatSinkRealTemp(void)
+*
+* Input  :  N/A
+*
+* Output :  u16HeatSinkTemperature
+*
+* Description: Return real temperature|50 degree offset
+*
+*
+* Notes:
+******************************************************************************/
+uint16_t analog_GetHeatSinkRealTemp(void)
+{
+	return u16HeatSinkTemperature;
+}
+
+/*******************************************************************************
+* uint16_t analog_GetAmbientRealTemp(void)
+*
+* Input  :  N/A
+*
+* Output :  u16HeatSinkTemperature
+*
+* Description: Return real temperature|50 degree offset
+*
+*
+* Notes:
+******************************************************************************/
+uint16_t analog_GetAmbientRealTemp(void)
+{
+  return u16AmbientTemperature;  
+}
+
+/*******************************************************************************
+* uint16_t analog_GetBulkVolt(void)
+*
+* Input  :  N/A
+*
+* Output :  u16IpBulkVoltAvg
+*
+* Description: Return averaged bulk Voltage
+*
+*
+* Notes:
+******************************************************************************/
+uint16_t analog_GetBulkVolt(void)
+{
+	return u16IpBulkVoltAvg;
+}
+
+/*******************************************************************************
+* bool analog_isInputRising(void)
+*
+* Input  :  N/A
+*
+* Output :  TRUE=Rising
+*
+* Description:
+*
+*
+* Notes:
+******************************************************************************/
+bool analog_isInputRising(void)
+{
+#ifndef CFG_DISABLE_INPUT_RISING_CHECK	
+	return bInputRise;
+#else
+	return TRUE;
+#endif	
+}
+
+/*******************************************************************************
+* bool analog_isACOV(void)
+*
+* Input  :  N/A
+*
+* Output :  TRUE=AC is OV
+*
+* Description:
+*
+*
+* Notes:
+******************************************************************************/
+bool analog_isACOV(void)
+{
+  return bACOVP;
+}
+
+bool analog_isACLost_Fast(void)
+{
+	return bACLost_Fast;
+}
+
+bool analog_isIpVoltRiseSudden(void)
+{
+#ifndef CFG_DISABLE_INPUT_VOL_RISE_SUDDEN
+	return bIpVoltRiseShutDownSynchFET;
+#else
+	return FALSE;
+#endif
+}
+/*******************************************************************************
+* bool analog_isACOK(void)
+*
+* Input  :  N/A
+*
+* Output :  TRUE=AC is OK
+*
+* Description:
+*
+*
+* Notes:
+******************************************************************************/
+bool analog_isACOK(void)
+{
+#ifndef CFG_DISABLE_ACOK	
+	//if((bACOk == TRUE)&&(bAC_lost == FALSE))
+	//{
+		//return TRUE;
+	//}
+	//else
+	//{
+		//return FALSE;
+	//}
+	return bACOk;
+#else
+	return TRUE;
+#endif	
+}
+/*******************************************************************************
+* bool analog_isOCP(void)
+*
+* Input  :  N/A
+*
+* Output :  TRUE=OCP is not occur
+*
+* Description:
+*
+*
+* Notes:
+******************************************************************************/
+bool analog_isOCP(void)
+{
+#ifndef CFG_DISABLE_OCP
+	return bOCP;
+#else
+	return FALSE;
+#endif
+}
+/*******************************************************************************
+* bool analog_isBlackOut(void)
+*
+* Input  :  N/A
+*
+* Output :  TRUE= AC is blackout 
+*
+* Description:
+*
+*
+* Notes:
+******************************************************************************/
+bool analog_isBlackOut(void)
+{
+#ifndef CFG_DISABLE_BLACKOUT	
+	return bBlackOut;
+#else
+	return FALSE;
+#endif	
+}
+/*******************************************************************************
+* bool analog_isOTP(void)
+*
+* Input  :  N/A
+*
+* Output :  TRUE=Primary heat sink is OTP
+*
+* Description:
+*
+*
+* Notes:
+******************************************************************************/
+bool analog_isOTP(void)
+{
+#ifndef CFG_DISABLE_OTP	
+	return bOTP;
+#else
+	return FALSE;
+#endif	
+}
+
+/*******************************************************************************
+* bool analog_isOPP(void)
+*
+* Input  :  N/A
+*
+* Output :  TRUE=Primary heat sink is OTW
+*
+* Description:
+*
+*
+* Notes:
+******************************************************************************/
+bool analog_isOPP(void)
+{
+    return bOPP;
+}
+
+/*******************************************************************************
+* bool analog_isOTW(void)
+*
+* Input  :  N/A
+*
+* Output :  TRUE=Primary heat sink is OTW
+*
+* Description:
+*
+*
+* Notes:
+******************************************************************************/
+bool analog_isOTW(void)
+{
+	return bOTW;
+}
+
+bool analog_isFanCtrl(void)
+{
+#ifndef CFG_DISABLE_FAN_CTRL	
+	if((bTemper_rise == TRUE)&&(analog_isOTW() == TRUE))
+	      return TRUE;
+	  else 
+		    return FALSE;
+#else
+		return FALSE;
+#endif
+}
+/*******************************************************************************
+* bool analog_isBulkOK(void)
+*
+* Input  :  N/A
+*
+* Output :  TRUE=Bulk OK
+*
+* Description:
+*
+*
+* Notes:
+******************************************************************************/
+bool analog_isBulkOK(void)
+{
+#ifndef CFG_DISABLE_BOK	
+	return bBulkOK;
+#else
+	return TRUE;
+#endif	
+}
+/*******************************************************************************
+* bool analog_isBulkOV(void)
+*
+* Input  :  N/A
+*
+* Output :  TRUE=Bulk OV
+*
+* Description:
+*
+*
+* Notes:
+******************************************************************************/
+bool analog_isBulkOV(void)
+{
+	return bBulkOV;
+}
+
+/*******************************************************************************
+* bool analog_isBulkUV(void)
+*
+* Input  :  N/A
+*
+* Output :  TRUE=Bulk UV
+*
+* Description:
+*
+*
+* Notes:
+******************************************************************************/
+bool analog_isBulkUV(void)
+{
+#ifndef CFG_DISABLE_BULKUV
+	return bBulkUV;
+#else
+	return FALSE;
+#endif
+}
+
+bool analog_isPFCFault()
+{
+  return bPFCFault;
+}
+/*******************************************************************************
+* void analog_ChkBlackOut_and_BrownOut(void)
+*
+* Input  :  u16IpRectVoltInstQ15
+*
+* Output :  bBlackOut, bACOk, u16IpVoltRMSAvg
+*
+* Description: Check if Ac input voltage Blackout and ACOk
+*
+*
+* Notes: This subroutine shall be run in mainloop
+******************************************************************************/
+void analog_ChkBlackOut_and_BrownOut(void)
+{
+    //Brownout fast recovery if input was resumed(AC still OK)
+	  //static HptscTicks_t ts_AcBrownOutFastRecoveryElapsedTicket = 0;
+	  //static HptscTicks_t	ts_ticketAcBrownOutFastRecoverySum;	
+	
+	  // Confirm AC Fail for a long timeout
+	  static HptscTicks_t ts_AcBrownOutElapsedTicket = 0;  		
+	  static HptscTicks_t ts_ticketBrownOutSum;			
+	
+	  static HptscTicks_t ts_AcBrownOutSlowElapsedTicket = 0;  		
+	  static HptscTicks_t ts_ticketBrownOutSlowSum;			
+	
+	  // AC AC bwownout recovery Elapsed from last time
+	  static HptscTicks_t ts_AcBrownOutRecoveryElapsedTicket = 0;   
+	  static HptscTicks_t ts_ticketBrownOutRecoverySum;
+	
+	  // AC blackout
+	  static HptscTicks_t ts_AcBlackOutElapsedTicket = 0;  		
+	  static HptscTicks_t ts_ticketblackOutSum;
+	
+	  static HptscTicks_t ts_AcBlackOutRecoveryElapsedTicket = 0;  		
+	  static HptscTicks_t ts_ticketblackOutRecoverySum;
+	
+	  static HptscTicks_t ts_ACFastElapsedTicket = 0;
+		static HptscTicks_t ts_ticketACFastSum;
+		
+		static HptscTicks_t ts_ticketACFastRecoverySum;
+		static HptscTicks_t	ts_ACFastRecoveryElapsedTicket = 0;
+		
+		static uint16_t u16IpVoltRMSTmp = 0;
+		
+		if(bSquare_wave == FALSE)
+		{
+		    u16InstRecoveryTh = K16_AC_INST_RECOVERY_TH;
+		}
+		else
+		{
+		    u16InstRecoveryTh = K16_SQUARE_INST_RECOVERY_TH;
+		}
+		
+	  //Blackout
+	  //#define K16_BLACKOUT_TH									IP_V(35)
+	  if(u16IpRectVoltInstQ15 >= K16_BLACKOUT_TH)
+		{
+		    ts_ticketblackOutSum = 0;
+			  ts_AcBlackOutElapsedTicket = 0;//Reset Timer
+#ifdef CFG_RIDE_THROUGH_TURN_OFF_SYN			
+			  ts_ticketACFastSum = 0;
+			  ts_ACFastElapsedTicket = 0;
+#endif
+		}
+		else
+		{
+		    ts_ticketblackOutSum += hptsc_ElapsedTicket(&ts_AcBlackOutElapsedTicket);
+#ifdef CFG_RIDE_THROUGH_TURN_OFF_SYN				
+			  ts_ticketACFastSum += hptsc_ElapsedTicket(&ts_ACFastElapsedTicket);
+#endif
+		}
+		
+		if(bBlackOut == TRUE)
+		{
+		    //#define K16_BROWNOUT_TH											IP_V(78)
+	      if(u16IpVoltRMSAvg <= K16_BROWNOUT_TH)
+	      {
+				    ts_ticketblackOutRecoverySum = 0;
+					  ts_AcBlackOutRecoveryElapsedTicket = 0;
+	      }
+	      else
+	      {
+					  //#define K16_FAST_BROWNOUT_RECOVERY_TH				IP_V(85)
+					  //#define K16_AC_INST_RECOVERY_TH							IP_V(107.6) //In case, bBrowanOut still false/
+					  //                                                           Input RMS still OK if there is a short blackout
+		        if((u16IpVoltRMS > K16_FAST_BROWNOUT_RECOVERY_TH)
+			         &&(u16IpRectVoltInstQ15 > u16InstRecoveryTh))
+		        {
+							  //#define K32_AC_RECOVERY_TIME								hptsc_MsToTicks(100)
+			          if(ts_ticketblackOutRecoverySum >= K32_AC_RECOVERY_TIME)
+			          {
+				            bBlackOut = FALSE;
+									  
+									  //IO_Test_Low();
+									  //GPIOA->ODR ^= (1<<5);
+            				
+									  ts_ticketblackOutRecoverySum = 0;
+					          ts_AcBlackOutRecoveryElapsedTicket = 0;
+			          }
+			          else
+			          {
+				            ts_ticketblackOutRecoverySum+=hptsc_ElapsedTicket(&ts_AcBlackOutRecoveryElapsedTicket);
+			          }
+		        }
+	      }	
+		}
+		else
+		{
+		    //#define K32_BLACKOUT_TIME								hptsc_MsToTicks(25)
+		    if(ts_ticketblackOutSum >= K32_BLACKOUT_TIME)
+		    {
+		        ts_ticketblackOutSum = 0;
+			      ts_AcBlackOutElapsedTicket = 0;//Reset Timer
+					
+			      //ts_ticketBrownOutRecoverySum = 0;
+			      //ts_AcBrownOutRecoveryElapsedTicket = 0;//Reset Timer
+					
+					  ts_ticketblackOutRecoverySum = 0;
+					  ts_AcBlackOutRecoveryElapsedTicket = 0;
+					
+					  //IO_Test_High();
+			      
+					  bBlackOut = TRUE;
+		    }	
+		}
+	
+
+	  //Brownout
+    //if((bACOk == TRUE)&&(bBlackOut == FALSE))
+		if(bACOk == TRUE)
+    {
+	      ts_ticketBrownOutRecoverySum = 0;
+	      ts_AcBrownOutRecoveryElapsedTicket = 0;//Should restart it
+			  
+			  //#define K16_FAST_BROWNOUT_RECOVERY_TH				IP_V(85)
+	      if(/*u16IpVoltRMSAvg*/u16IpVoltRMS >= K16_FAST_BROWNOUT_RECOVERY_TH)
+	      {
+		        ts_ticketBrownOutSum = 0; //Clear AC fail counter
+		        ts_AcBrownOutElapsedTicket = 0;//Reset Timer
+					
+					  ts_ticketBrownOutSlowSum = 0;
+					  ts_AcBrownOutSlowElapsedTicket = 0; 
+	      }
+	      else
+	      {
+            if(u16IpVoltRMS < K16_FAST_BROWNOUT_TH) //65V
+					  {
+							  if(ts_ticketBrownOutSum >= K32_BROWNOUT_TIME)//80ms
+			          {
+				            ts_ticketBrownOutSum = 0;
+				            ts_AcBrownOutElapsedTicket = 0;//Reset Timer
+				            
+				            //AC is FAIL
+				            bACOk = FALSE;
+			          }
+			          else
+			          {
+				            ts_ticketBrownOutSum += hptsc_ElapsedTicket(&ts_AcBrownOutElapsedTicket);
+			          }
+					  }
+						
+						if(u16IpVoltRMS > K16_FAST_BROWNOUT_TH_CLR)
+						{
+								ts_ticketBrownOutSum = 0;
+							  ts_AcBrownOutElapsedTicket = 0;//Reset Timer
+						}
+						
+            if(u16IpVoltRMS < K16_BROWNOUT_TH)//78V
+            {
+								if(ts_ticketBrownOutSlowSum >= K32_BROWNOUTSLOW_TIME)//500ms
+			          {
+				            ts_ticketBrownOutSlowSum = 0;
+				            ts_AcBrownOutSlowElapsedTicket = 0;//Reset Timer
+									
+									  ts_ticketBrownOutSum = 0;
+				            ts_AcBrownOutElapsedTicket = 0;//Reset Timer
+				 
+				            //AC is FAIL
+				            bACOk = FALSE;
+			          }
+			          else
+			          {
+				            ts_ticketBrownOutSlowSum += hptsc_ElapsedTicket(&ts_AcBrownOutSlowElapsedTicket);
+			          }							    
+						}									
+				}
+     }//AC fail
+     else
+     {
+	       ts_ticketBrownOutSum = 0;
+	       ts_AcBrownOutElapsedTicket = 0;  //Reset timer
+			 
+			   ts_ticketBrownOutSlowSum = 0;
+				 ts_AcBrownOutSlowElapsedTicket = 0;  //Reset timer  
+			 
+			   //#define K16_BROWNOUT_TH											IP_V(80)
+	       if(u16IpVoltRMSAvg <= K16_BROWNOUT_TH)
+	       {
+		         ts_ticketBrownOutRecoverySum = 0;
+		         ts_AcBrownOutRecoveryElapsedTicket = 0;
+	       }
+	       else
+	       {
+					   //#define K16_FAST_BROWNOUT_RECOVERY_TH				IP_V(85)
+					   //#define K16_AC_INST_RECOVERY_TH							IP_V(90) //In case, bBrowanOut still false/
+					   //                                                           Input RMS still OK if there is a short blackout
+		         if((u16IpVoltRMSAvg/*u16IpVoltRMS*/>K16_FAST_BROWNOUT_RECOVERY_TH)
+			          &&(u16IpRectVoltInstQ15 > u16InstRecoveryTh))
+		         {
+							   //#define K32_AC_RECOVERY_TIME								hptsc_MsToTicks(100)
+			           if(ts_ticketBrownOutRecoverySum >= K32_AC_RECOVERY_TIME)
+			           {
+				             bACOk = TRUE;
+                     //bBrownOut = FALSE;
+				             //bBlackOut = FALSE;
+                     ts_ticketBrownOutRecoverySum = 0;
+				             ts_AcBrownOutRecoveryElapsedTicket = 0;
+			           }
+			           else
+			           {
+				             ts_ticketBrownOutRecoverySum+=hptsc_ElapsedTicket(&ts_AcBrownOutRecoveryElapsedTicket);
+			           }
+		         }
+	       }
+     }	 
+}
+
+void analog_ACRecycleClrFault(void)
+{
+	  static bool bInputNotOkay = TRUE;
+	  static HptscTicks_t ts_ACRecycleElapsedTicket = 0;  		
+	  static HptscTicks_t ts_ticketACRecycleSum;
+    if(analog_isACOK() == FALSE)
+		{
+		    bInputNotOkay = TRUE;  
+        ts_ACRecycleElapsedTicket = 0;
+        ts_ticketACRecycleSum = 0;			
+		}
+		else
+		{
+		    if(TRUE == bInputNotOkay)
+				{
+				    if(ts_ticketACRecycleSum > K32_AC_RECYCLE_TIME)
+						{
+						    ts_ticketACRecycleSum = K32_AC_RECYCLE_TIME;
+                bOTP = FALSE;	
+							  bOPP = FALSE;
+                bInputNotOkay = FALSE;							
+						}
+						else 
+						{
+						    ts_ticketACRecycleSum += hptsc_ElapsedTicket(&ts_ACRecycleElapsedTicket);
+						}
+				}
+		}
+}
+
+void period_200us_repetitive(void)
+{
+    static uint32_t temper_count = 0;  
+	 //200us interval => calc all corrected values
+	if (hptsc_IsElapsedRepetitive(&ts_bulk, K32_BULK_INTERVAL))
+	{ 	  
+           ;
+	}
+
+}
+
+

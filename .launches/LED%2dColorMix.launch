@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launchConfiguration type="com.ti.ccstudio.debug.core.CCELaunchType">
+<stringAttribute key="org.eclipse.debug.core.source_locator_memento" value="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;&#13;&#10;&lt;sourceLookupDirector&gt;&#13;&#10;&lt;sourceContainers duplicates=&quot;false&quot;&gt;&#13;&#10;&lt;container memento=&quot;&amp;lt;?xml version=&amp;quot;1.0&amp;quot; encoding=&amp;quot;UTF-8&amp;quot;?&amp;gt;&amp;#13;&amp;#10;&amp;lt;default/&amp;gt;&amp;#13;&amp;#10;&quot; typeId=&quot;org.eclipse.debug.core.containerType.default&quot;/&gt;&#13;&#10;&lt;/sourceContainers&gt;&#13;&#10;&lt;/sourceLookupDirector&gt;&#13;&#10;"/>
+<booleanAttribute key="com.ti.ccstudio.debug.core.MRU_PROGRAM_S_ONLY" value="false"/>
+<booleanAttribute key="org.eclipse.debug.ui.ATTR_LAUNCH_IN_BACKGROUND" value="false"/>
+<stringAttribute key="org.eclipse.cdt.launch.DEBUGGER_ID" value="com.ti.ccstudio.debug.core.CCEDebugger"/>
+<stringAttribute key="CCEDebugOptions.CPU_RESOLVE_OPTION" value="exact"/>
+<stringAttribute key="org.eclipse.debug.ui.DISPLAY_NAME" value="LED-ColorMix [F2802x_FLASH] - Texas Instruments XDS100v1 USB Emulator_0/C28xx"/>
+<stringAttribute key="org.eclipse.cdt.launch.DEBUGGER_REGISTER_GROUPS" value=""/>
+<mapAttribute key="com.ti.ccstudio.debug.core.VARIABLE_STATE"/>
+<stringAttribute key="org.eclipse.cdt.launch.DEBUGGER_START_MODE" value="run"/>
+<stringAttribute key="com.ti.ccstudio.debug.core.DISPLAY_NAME_FORMAT" value="LED-ColorMix [F2802x_FLASH] - {0}"/>
+<stringAttribute key="CCEDebugOptions.DEBUG_PROPERTIES.Texas Instruments XDS100v1 USB Emulator_0/C28xx" value="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot; standalone=&quot;no&quot; ?&gt;&#10;&lt;PropertyValues&gt;&#10;&#10;  &lt;property id=&quot;ConnectOnStartup&quot;&gt;&#10;    &lt;curValue&gt;1&lt;/curValue&gt;&#10;  &lt;/property&gt;&#10;&#10;&lt;/PropertyValues&gt;&#10;"/>
+<stringAttribute key="CCEDebugOptions.TARGET_CONFIGURATION_OPTION" value="full"/>
+<stringAttribute key="org.eclipse.cdt.launch.MEMORY_BLOCKS" value="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;&#13;&#10;&lt;memoryBlockExpressionList/&gt;&#13;&#10;"/>
+<stringAttribute key="com.ti.ccstudio.debug.core.MRU_PROGRAM_NAME" value="C:\TI\ControlSUITE_dev\development_kits\Multi-DCDC-Color-LED-Kit_v1.0\LED-ColorMix\F2802x_FLASH\LED-ColorMix.out"/>
+<stringAttribute key="CCEDebugOptions.CPU_NAME" value="Texas Instruments XDS100v1 USB Emulator_0/C28xx"/>
+<stringAttribute key="org.eclipse.cdt.launch.PROJECT_ATTR" value="LED-ColorMix"/>
+<stringAttribute key="com.ti.ccstudio.debug.core.MRU_MODULES" value="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;&#13;&#10;&lt;modules&gt;&#13;&#10;&lt;module name=&quot;C:\TI\ControlSUITE\development_kits\LV-DCDC-LED-RGB_v1.0\LED-ColorMix\F2803x_FLASH\LED-ColorMix.out&quot; time=&quot;Tue Nov 09 15:24:37 CST 2010&quot; time_long=&quot;1289337877987&quot;/&gt;&#13;&#10;&lt;module name=&quot;C:\TI\ControlSUITE\development_kits\LV-DCDC-LED-RGB_v1.0\LED-ColorMix\F2803x_RAM\LED-ColorMix.out&quot; time=&quot;Wed Nov 10 18:52:47 CST 2010&quot; time_long=&quot;1289436767506&quot;/&gt;&#13;&#10;&lt;module name=&quot;C:\TI\ControlSUITE\development_kits\LV-DCDC-LED-RGB_v1.0\LED-ColorMix\F2802x_FLASH\LED-ColorMix.out&quot; time=&quot;Tue Nov 23 17:34:41 CST 2010&quot; time_long=&quot;1290555281950&quot;/&gt;&#13;&#10;&lt;module name=&quot;C:\TI\ControlSUITE_dev\development_kits\LV-DCDC-LED-RGB_v1.0\LED-ColorMix\F2802x_FLASH\LED-ColorMix.out&quot; time=&quot;Thu Dec 02 13:42:41 CST 2010&quot; time_long=&quot;1291318961743&quot;/&gt;&#13;&#10;&lt;module name=&quot;C:\TI\ControlSUITE_dev\development_kits\Multi-DCDC-Color-LED-Kit_v1.0\LED-ColorMix\F2802x_FLASH\LED-ColorMix.out&quot; time=&quot;Thu Dec 09 17:04:56 CST 2010&quot; time_long=&quot;1291935896625&quot;/&gt;&#13;&#10;&lt;/modules&gt;&#13;&#10;"/>
+<stringAttribute key="org.eclipse.cdt.launch.GLOBAL_VARIABLES" value="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;&#13;&#10;&lt;globalVariableList/&gt;&#13;&#10;"/>
+<stringAttribute key="CCEDebugOptions.CPU_ISA" value="TMS320C28xx"/>
+<stringAttribute key="org.eclipse.cdt.launch.PROGRAM_NAME" value="F2802x_FLASH/LED-ColorMix.out"/>
+<stringAttribute key="com.ti.ccstudio.debug.core.BUILD_CONFIGURATION" value="F2802x_FLASH"/>
+<stringAttribute key="CCEDebugOptions.DEBUG_PROPERTIES.Texas Instruments XDS100v1 USB Emulator_0/CLA_0" value="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot; standalone=&quot;no&quot; ?&gt;&#10;&lt;PropertyValues&gt;&#10;&#10;  &lt;property id=&quot;ConnectOnStartup&quot;&gt;&#10;    &lt;curValue&gt;1&lt;/curValue&gt;&#10;  &lt;/property&gt;&#10;&#10;&lt;/PropertyValues&gt;&#10;"/>
+<stringAttribute key="CCEDebugOptions.TARGET_CONFIGURATION_FILE" value="C:/Documents and Settings/a0271841/user/CCSTargetConfigurations/XDS100 F28027.ccxml"/>
+<stringAttribute key="org.eclipse.debug.core.source_locator_id" value="com.ti.ccstudio.debug.core.sourceLocator"/>
+</launchConfiguration>

@@ -1,0 +1,319 @@
+/*
+ * main.h
+ *
+ *  Created on: 2017Äê9ÔÂ4ÈÕ
+ *      Author: zxid
+ */
+
+#ifndef INC_MAIN_H_
+#define INC_MAIN_H_
+
+#include "stdint.h"
+
+
+
+typedef 	unsigned char 	BYTE;
+typedef     unsigned int	WORD;
+typedef     unsigned short	u16;
+typedef     		 short	i16;
+typedef     unsigned long	u32;
+typedef     		long	i32;
+
+
+
+typedef struct
+{
+	signed short int inter_A1;
+	signed short int inter_A2;
+	signed short int inter_A3;
+	signed short int error_z1;
+	signed short int error_z2;
+	long Uout_z1;
+
+
+}	CTRL2P2Z_coeff;
+extern CTRL2P2Z_coeff  CTRL2P2Z_COEFF_VOLTAGE_LOOP;
+extern CTRL2P2Z_coeff  CTRL2P2Z_COEFF_current_LOOP;
+//extern CTRL2P2Z_coeff CTRL2P2Z_COEFF_inter_LOOP;
+
+typedef union
+{
+	struct
+	{
+		unsigned TimerExpired		:1;
+		unsigned TaskRunning	:1;
+		unsigned TaskTooLong	:1;
+	} bits;
+	BYTE         byByte;
+} T_TimerFlags;
+
+
+typedef struct tagT_Timer
+{
+	WORD 			wTimerValue;                 	// contains the timer value
+	char 			byThreadLevel;		    		// Contains the Thread Level, 0xFF means that timer is called
+
+	T_TimerFlags 	tTimerFlags;
+} T_Timer;
+
+
+
+typedef struct tagT_AllTimers_1ms
+{
+	T_Timer t_High_Level_Task_1;
+	T_Timer t_Normal_Level_Task_1;
+	T_Timer t_Fault_check_Task;
+	T_Timer t_filter_Task;
+
+} T_AllTimers_1ms;
+
+typedef struct tagT_AllTimers_10ms
+{
+
+	T_Timer	t_Start_Up_Delay_Timer_2;
+	T_Timer t_Low_Level_Task_1;
+	T_Timer t_WDT_Reset_Timer;							//used to reset WDT timer
+
+
+} T_AllTimers_10ms;
+
+typedef struct tagT_AllTimers_100ms
+{
+	T_Timer  t_CPU_Usage_Timer;
+	T_Timer  t_Start_Up_Delay_Timer;
+
+} T_AllTimers_100ms;
+
+typedef struct tagT_AllTimers_1sec
+{
+	T_Timer t_Timers_1secTimer;
+	T_Timer t_Bulk_OV_Reset_Timer;
+} T_AllTimers_1sec;
+
+
+typedef struct tagT_AllTimers
+{
+	T_AllTimers_1ms         t_Timers_1ms;
+	T_AllTimers_10ms        t_Timers_10ms;
+	T_AllTimers_100ms       t_Timers_100ms;
+	T_AllTimers_1sec        t_Timers_1sec;
+	unsigned char                   by10msecCounter;
+	unsigned char                     by100msecCounter;
+	unsigned char                     by1secCounter;
+} T_AllTimers;
+
+
+extern volatile T_AllTimers 	t_Timers;
+
+
+
+typedef enum _TAG_STATE_Machine
+{
+	Battery_STANDBY=0,
+	Check_batery,
+	Boost_batter,
+	Charge__low_battery,
+	Stop_charge
+
+} Machine;
+
+extern Machine Charge_process;
+
+//typedef union POWER_FLAGS_TAG
+//{
+//	unsigned int flags;
+//	struct
+//	{
+//		unsigned U24V_OV              :1;
+//		unsigned VbusOVFault          :1;
+//		unsigned PS_shutdown                :1;
+//		unsigned U24V_UV                 :1;
+
+//		unsigned Charge_enable           :1;
+//		unsigned High_battery_ov            :1;
+//		unsigned High_battery_uv           :1;
+//		unsigned Low_battery_uv            :1;
+
+
+//		unsigned Low_battery_ov                :1;
+//		unsigned Charger_oc               :1;
+//		unsigned OT             :1;
+//		unsigned VBOOST_UV             :1;
+
+//		unsigned VBOOST_OV             :1;
+//		unsigned RES		:3;
+//	} b;
+//} POWER_FLAGS;
+
+//extern POWER_FLAGS POWERFlags;
+
+
+typedef enum _TAG_STATE_MACHINE
+{
+	STATE_STANDBY=0,
+	STATE_SOFT_START,
+	STATE_RUN,
+	STATE_RESTART_INIT,
+	STATE_RESTART_DELAY,
+	STATE_CONTROL_INIT
+} MACHINE;
+
+extern MACHINE uPowerState;
+
+//typedef union P_FLAGS_TAG
+//{
+//	unsigned int flags;
+//	struct
+//	{
+//		unsigned int  LLC_power   :1;
+//		unsigned int  LLC_isrunning  :1;
+//		unsigned int  Boost_power   :1;
+//		unsigned int  SR_ON   :1;
+//		unsigned int  Charge_ONCE   :1;
+//		unsigned int  resverd   :11;
+
+//	} b;
+//} P_FLAGS;
+
+typedef union PFC_FLAGS_TAG{
+    unsigned int flags;
+    struct
+    {
+    	unsigned start			:1;	// Startup sync
+//    	unsigned enable	 		:1;	// PFC enable flag
+    	unsigned VbusOVFault	 		:1;	// PFC enable flag
+    	unsigned started		:1;	// Softstart tracking
+//    	unsigned gain			:1;	// Gain mode
+    	
+    	unsigned ramp			:1;	// Indicates the ref is ramping
+	    unsigned droop_en		:1;	// Bus drooping enable flag
+	    unsigned bus_ctl		:1;	// Vbus control event
+	    unsigned bus_up			:1;	// Droop override flag
+	    
+	    unsigned CBC_OC		:1;	// Indicates one or two phase operation
+	    unsigned valley			:1;	// Indicates the line cycle valley
+	    unsigned zero_dv_dt		:1;	// Indicates zero dv/dt crossover in line    
+	    unsigned dcm_ccm_sw		:1; 
+		
+	    unsigned ac_tog         :1;  
+	    unsigned pri_bus_up         :1; 
+	    unsigned input_high         :1; 
+	   unsigned bus_ctl_fast	:1;
+    }b;
+}PFC_FLAGS;
+
+extern PFC_FLAGS uPFCFlags;
+
+
+#define True 1
+#define  Fause 0
+
+#define TRUE 1
+#define  FALSE 0
+
+#define END_VALUE_10MSEC  10  	//This value is based on the 1 msec timer. For 10msec = 10 x  1msec
+#define END_VALUE_100MSEC 10  	//This value is based on the 10 msec timer. For 100msec = 10 x  10msec
+#define END_VALUE_1SEC	  10 	//This value is based on the 100 msec timer. For 1 sec =  10 x 100msec
+
+//#define	Test_duty
+#define  Fault_check_time_1MS_5    5
+
+#define  PSU_process_time_1MS_1    1
+
+#define  PSU_process_time_1MS_100    200
+
+#define  PSU_process_time_1MS_10    10
+
+
+
+//#define  MAX_POWER          2800*65535
+
+
+#define  UV_24V_LOST   V_24V_gain*9
+
+#define  UV_24V_LOST_RECOVER   V_24V_gain*11
+
+
+//TODO
+#define V_BULK_GAIN					(000)
+#define V_IN_AC_GAIN				(000)
+
+
+#define mVbus_Control_Trig()		uPFCFlags.b.bus_ctl
+#define MAX_PFC_DUTY          		(u16)(EPWM_PFC_SW_FREQUENCY*0.93)
+#define MIN_PFC_DUTY          		(u16)(50)
+
+#define AD_u16_I_AC_ZERO          		(1500)
+#define	PFC_BUS_VSQUARE_SAT				(1200)
+#define PRI_VBUS_OV_WARN          		(u16)((float)430*V_BULK_GAIN)
+#define PRI_VBUS_OV_FAULT          		(u16)((float)440*V_BULK_GAIN)
+#define PRI_VBUS_UP          			(u16)((float)350*V_BULK_GAIN)
+
+
+
+//extern P_FLAGS uPFlags;
+
+//extern u16 u16LLC_frequence;
+//extern u16 u16LLC_frequence_deadtime;
+
+extern u16  V_charge_target;
+extern u16  I_charge_target;
+
+extern u16 V_charge_ref;
+extern u16 I_charge_ref;
+//extern u16  Avg_u16_V_lowbattery;
+//extern u16  Avg_u16_V_Highbattery;
+//extern u16  Avg_u16_V_Boostout;
+//extern u16  Avg_u16_V_24v;
+//extern u16  Avg_u16_V_tempurtaion;
+//extern u16  Avg_u16_I_LLC1;
+
+//extern u16  AD_u16_V_lowbattery;
+//extern u16  AD_u16_V_Highbattery;
+//extern u16  AD_u16_V_Boostout;
+//extern u16  AD_u16_V_24v;
+//extern u16  AD_u16_I_LLC1;
+//extern u16  AD_u16_I_LLC2;
+//extern u16  AD_u16_V_tempurtaion;
+//extern u16  AD_u16_l_boost1;
+//extern u16  AD_u16_l_boost2;
+//extern u32  Max_power_target;
+
+
+////////////////////////////////////
+extern u16	AD_u16_I_AC;
+extern u16	AD_u16_U_HV_FB;
+extern u16	AD_u16_U_AC_L_FB;
+extern u16	AD_u16_U_AC_N_FB;
+extern u16	AD_u16_U_3V_REF;
+
+extern u16	uIctl_Ref;
+extern u16	u16Xvin;
+extern u16	u16Xiin;
+extern u16	uVbus_Area;
+extern u16	uVbus_Ref;
+extern u32	u32AvgVbus;
+extern u16	uVbus_Gain_Adj_AC;
+extern u16	uIsenseAdj;
+extern u16 u8IpSampleCnt;
+extern u32 u32IpVoltSumOfSquare;
+extern u16	uAvgSqVin_z1;
+
+
+
+extern void 	PSU_process ( void );
+extern void Power_state_control ( void );
+extern void Timer_Handler_GS ( void );
+extern void Thread_Handler_GS ( void );
+extern  short PI_Boost_internal ( int Voutref, int VoutT,long Max_out,CTRL2P2Z_coeff* CTRL2p2z,long U32Min_out );
+extern  short PI_VBus ( i16 error, i32 Max_out,CTRL2P2Z_coeff* CTRL2p2z,i32 U32Min_out );
+extern void Vbus_Generate_Err ( void );
+extern void Check_Fast_Bus_Voltage_Conditions ( void );
+extern void Vbus_Control ( void );
+extern void Vbus_Feedforward_Scaling ( void );
+extern void InitThread ( void );
+extern void period_200us_repetitive(void);
+extern void Filter_date(void);
+
+
+#endif /* INC_MAIN_H_ */

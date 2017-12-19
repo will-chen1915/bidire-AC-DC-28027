@@ -1,0 +1,26 @@
+#ifndef _SCICOMMU_CTRL_H
+#define _SCICOMMU_CTRL_H
+
+#define MAX_SCI_SIZE 64
+
+
+typedef struct
+{
+Uint16      header;
+Uint16      command;
+Uint16      data;
+Uint16      rear;
+}app_packe_t;
+
+typedef struct
+{
+uint8_t nLen;
+char    buf[MAX_SCI_SIZE];
+}Sci_packet_t;
+
+
+extern Sci_packet_t *Rxd_buf;
+
+extern void SCICommu_Control(void);
+
+#endif

@@ -1,0 +1,13 @@
+---- Vbus_Control Matches (12 in 5 files) ----
+Control_loop.c (source):void Vbus_Control_Init ( void )
+Control_loop.c (source):void Vbus_Control ( void )
+F2802x_globalprototypes.h (include):extern void Vbus_Control_Init(void);
+LED-ColorMix_linkInfo.xml (f2802x_flash):         <name>.text:_Vbus_Control</name>
+LED-ColorMix_linkInfo.xml (f2802x_flash):         <name>.text:_Vbus_Control_Init</name>
+LED-ColorMix_linkInfo.xml (f2802x_flash):         <name>_Vbus_Control_Init</name>
+LED-ColorMix_linkInfo.xml (f2802x_flash):         <name>_Vbus_Control</name>
+Main.c (source):	Vbus_Control_Init();
+Main.c (source):			Vbus_Control();
+Main.c (source)://			Vbus_Control();
+Main.h (include)://#define mVbus_Control_Trig()		(uPFCFlags.b.bus_ctl)
+Main.h (include):extern void Vbus_Control ( void );
