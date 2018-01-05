@@ -122,4 +122,11 @@ source/main.obj: ../source/main.c $(GEN_OPTS) $(GEN_HDRS)
 	@echo 'Finished building: $<'
 	@echo ' '
 
+source/state.obj: ../source/state.c $(GEN_OPTS) $(GEN_HDRS)
+	@echo 'Building file: $<'
+	@echo 'Invoking: C2000 Compiler'
+	"c:/ti/ccsv6/tools/compiler/c2000_6.2.7/bin/cl2000" -v28 -ml -mt -g --include_path="c:/ti/ccsv6/tools/compiler/c2000_6.2.7/include" --include_path="D:/CCS_workspace_v6_0/28027/include" --define="_DEBUG" --define="LARGE_MODEL" --define="FLASH" --diag_warning=225 --gen_func_subsections=on --preproc_with_compile --preproc_dependency="source/state.pp" --obj_directory="source" $(GEN_OPTS__FLAG) "$<"
+	@echo 'Finished building: $<'
+	@echo ' '
+
 

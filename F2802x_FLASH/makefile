@@ -25,6 +25,7 @@ $(GEN_CMDS__FLAG) \
 "./source/f2802x_usdelay.obj" \
 "./source/input_control.obj" \
 "./source/main.obj" \
+"./source/state.obj" \
 "../F28027_FLASH_LED-ColorMix.cmd" \
 "../F2802x_Headers_nonBIOS.cmd" \
 
@@ -126,28 +127,28 @@ endif
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXE_OUTPUTS += \
-LED-ColorMix.out \
+28027.out \
 
 EXE_OUTPUTS__QUOTED += \
-"LED-ColorMix.out" \
+"28027.out" \
 
 
 # All Target
-all: LED-ColorMix.out
+all: 28027.out
 
 # Tool invocations
-LED-ColorMix.out: $(OBJS) $(CMD_SRCS) $(GEN_CMDS)
+28027.out: $(OBJS) $(CMD_SRCS) $(GEN_CMDS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: C2000 Linker'
-	"c:/ti/ccsv6/tools/compiler/c2000_6.2.7/bin/cl2000" -v28 -ml -mt -g --define="_DEBUG" --define="LARGE_MODEL" --define="FLASH" --diag_warning=225 --gen_func_subsections=on -z --stack_size=0x300 -m"LED-ColorMix.map" --warn_sections -i"c:/ti/ccsv6/tools/compiler/c2000_6.2.7/lib" -i"c:/ti/ccsv6/tools/compiler/c2000_6.2.7/include" -i"D:/CCS_workspace_v6_0/28027" --reread_libs --xml_link_info="LED-ColorMix_linkInfo.xml" --rom_model -o "LED-ColorMix.out" $(ORDERED_OBJS)
+	"c:/ti/ccsv6/tools/compiler/c2000_6.2.7/bin/cl2000" -v28 -ml -mt -g --define="_DEBUG" --define="LARGE_MODEL" --define="FLASH" --diag_warning=225 --gen_func_subsections=on -z --stack_size=0x300 -m"28027.map" --warn_sections -i"c:/ti/ccsv6/tools/compiler/c2000_6.2.7/lib" -i"c:/ti/ccsv6/tools/compiler/c2000_6.2.7/include" -i"D:/CCS_workspace_v6_0/28027" --reread_libs --xml_link_info="LED-ColorMix_linkInfo.xml" --rom_model -o "28027.out" $(ORDERED_OBJS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 
 # Other Targets
 clean:
 	-$(RM) $(EXE_OUTPUTS__QUOTED)
-	-$(RM) "source\DSP2803x_Sci.pp" "source\F2802x_EPwm.pp" "source\F2802x_GlobalVariableDefs.pp" "source\F2802x_Gpio.pp" "source\SCICommu_Ctrl.pp" "source\Timer.pp" "source\control_loop.pp" "source\f2802x_adc.pp" "source\f2802x_cputimers.pp" "source\f2802x_defaultisr.pp" "source\f2802x_piectrl.pp" "source\f2802x_pievect.pp" "source\f2802x_sysctrl.pp" "source\input_control.pp" "source\main.pp" 
-	-$(RM) "source\DSP2803x_Sci.obj" "source\F2802x_EPwm.obj" "source\F2802x_GlobalVariableDefs.obj" "source\F2802x_Gpio.obj" "source\SCICommu_Ctrl.obj" "source\Timer.obj" "source\control_loop.obj" "source\f2802x_adc.obj" "source\f2802x_codestartbranch.obj" "source\f2802x_cputimers.obj" "source\f2802x_defaultisr.obj" "source\f2802x_piectrl.obj" "source\f2802x_pievect.obj" "source\f2802x_sysctrl.obj" "source\f2802x_usdelay.obj" "source\input_control.obj" "source\main.obj" 
+	-$(RM) "source\DSP2803x_Sci.pp" "source\F2802x_EPwm.pp" "source\F2802x_GlobalVariableDefs.pp" "source\F2802x_Gpio.pp" "source\SCICommu_Ctrl.pp" "source\Timer.pp" "source\control_loop.pp" "source\f2802x_adc.pp" "source\f2802x_cputimers.pp" "source\f2802x_defaultisr.pp" "source\f2802x_piectrl.pp" "source\f2802x_pievect.pp" "source\f2802x_sysctrl.pp" "source\input_control.pp" "source\main.pp" "source\state.pp" 
+	-$(RM) "source\DSP2803x_Sci.obj" "source\F2802x_EPwm.obj" "source\F2802x_GlobalVariableDefs.obj" "source\F2802x_Gpio.obj" "source\SCICommu_Ctrl.obj" "source\Timer.obj" "source\control_loop.obj" "source\f2802x_adc.obj" "source\f2802x_codestartbranch.obj" "source\f2802x_cputimers.obj" "source\f2802x_defaultisr.obj" "source\f2802x_piectrl.obj" "source\f2802x_pievect.obj" "source\f2802x_sysctrl.obj" "source\f2802x_usdelay.obj" "source\input_control.obj" "source\main.obj" "source\state.obj" 
 	-$(RM) "source\f2802x_codestartbranch.pp" "source\f2802x_usdelay.pp" 
 	-@echo 'Finished clean'
 	-@echo ' '

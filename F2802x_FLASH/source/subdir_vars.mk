@@ -22,7 +22,8 @@ C_SRCS += \
 ../source/f2802x_pievect.c \
 ../source/f2802x_sysctrl.c \
 ../source/input_control.c \
-../source/main.c 
+../source/main.c \
+../source/state.c 
 
 OBJS += \
 ./source/DSP2803x_Sci.obj \
@@ -41,7 +42,8 @@ OBJS += \
 ./source/f2802x_sysctrl.obj \
 ./source/f2802x_usdelay.obj \
 ./source/input_control.obj \
-./source/main.obj 
+./source/main.obj \
+./source/state.obj 
 
 ASM_DEPS += \
 ./source/f2802x_codestartbranch.pp \
@@ -62,7 +64,8 @@ C_DEPS += \
 ./source/f2802x_pievect.pp \
 ./source/f2802x_sysctrl.pp \
 ./source/input_control.pp \
-./source/main.pp 
+./source/main.pp \
+./source/state.pp 
 
 C_DEPS__QUOTED += \
 "source\DSP2803x_Sci.pp" \
@@ -79,7 +82,8 @@ C_DEPS__QUOTED += \
 "source\f2802x_pievect.pp" \
 "source\f2802x_sysctrl.pp" \
 "source\input_control.pp" \
-"source\main.pp" 
+"source\main.pp" \
+"source\state.pp" 
 
 OBJS__QUOTED += \
 "source\DSP2803x_Sci.obj" \
@@ -98,7 +102,8 @@ OBJS__QUOTED += \
 "source\f2802x_sysctrl.obj" \
 "source\f2802x_usdelay.obj" \
 "source\input_control.obj" \
-"source\main.obj" 
+"source\main.obj" \
+"source\state.obj" 
 
 ASM_DEPS__QUOTED += \
 "source\f2802x_codestartbranch.pp" \
@@ -119,7 +124,8 @@ C_SRCS__QUOTED += \
 "../source/f2802x_pievect.c" \
 "../source/f2802x_sysctrl.c" \
 "../source/input_control.c" \
-"../source/main.c" 
+"../source/main.c" \
+"../source/state.c" 
 
 ASM_SRCS__QUOTED += \
 "../source/f2802x_codestartbranch.asm" \

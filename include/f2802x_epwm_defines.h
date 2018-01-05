@@ -37,7 +37,7 @@ extern "C" {
 #define EPWM_PFC_SW_FREQUENCY				(EPWM_PFC_SW_KHZ(EPWM_20KHZ))  //Switching frequency 20KHz
 #define EPWM_PFC_MAX_CMPA					(Uint16)((double)0.9*EPWM_PFC_SW_FREQUENCY)// Max duty: 90%
 #define EPWM_PFC_MIN_CMPA					(0)
-#define EPWM_PFC_DRV_DEAD_BAND      		(EPWM_PFC_DEAD_BAND_NS(400))	//dead-band xxxns
+#define EPWM_PFC_DRV_DEAD_BAND      		(EPWM_PFC_DEAD_BAND_NS(1500))	//dead-band xxxns
 
 
 #define EPWM_LLC_SW_HI_FREQUENCY				(EPWM_LLC_SW_KHZ(220))	//Switching frequency 200KHz

@@ -461,17 +461,17 @@ void InitEPwm1()		//LLC1 DRV
 	
 
 	// Define an event (DCAEVT2) for Current CBC
-//	EPwm1Regs.DCTRIPSEL.bit.DCAHCOMPSEL = DC_COMP1OUT;        // DCAH = Comparator 1 output
-//	EPwm1Regs.TZCTL.bit.DCAEVT2 = TZ_FORCE_LO;			// set EPWMxA to low at fault
-//	EPwm1Regs.TZCTL.bit.DCBEVT2 = TZ_FORCE_LO;			// set EPWMxB to low at fault
-//	EPwm1Regs.DCTRIPSEL.bit.DCALCOMPSEL = DC_TZ2;             // DCAL = TZ2
-//	EPwm1Regs.TZSEL.bit.DCAEVT2 = TZ_ENABLE;			// oneshot source
-//	EPwm1Regs.TZDCSEL.bit.DCAEVT2 = TZ_DCAH_HI;              // DCAEVT1 =  DCAH low(will become active as Comparator output goes low)
-//	EPwm1Regs.DCACTL.bit.EVT2SRCSEL = DC_EVT2;                // DCAEVT1 = DCAEVT1 (not filtered)
-//	EPwm1Regs.DCACTL.bit.EVT2FRCSYNCSEL = DC_EVT_ASYNC;       // Take async path
+	EPwm1Regs.DCTRIPSEL.bit.DCAHCOMPSEL = DC_COMP1OUT;        // DCAH = Comparator 1 output
+	EPwm1Regs.TZCTL.bit.DCAEVT2 = TZ_FORCE_LO;			// set EPWMxA to low at fault
+	EPwm1Regs.TZCTL.bit.DCBEVT2 = TZ_FORCE_LO;			// set EPWMxB to low at fault
+	EPwm1Regs.DCTRIPSEL.bit.DCALCOMPSEL = DC_TZ2;             // DCAL = TZ2
+	EPwm1Regs.TZSEL.bit.DCAEVT2 = TZ_ENABLE;			// oneshot source
+	EPwm1Regs.TZDCSEL.bit.DCAEVT2 = TZ_DCAH_HI;              // DCAEVT1 =  DCAH low(will become active as Comparator output goes low)
+	EPwm1Regs.DCACTL.bit.EVT2SRCSEL = DC_EVT2;                // DCAEVT1 = DCAEVT1 (not filtered)
+	EPwm1Regs.DCACTL.bit.EVT2FRCSYNCSEL = DC_EVT_ASYNC;       // Take async path
 
-//	EPwm1Regs.TZEINT.bit.DCAEVT2=ET_ENABLE;
-//	EPwm1Regs.TZEINT.bit.DCBEVT2=ET_ENABLE;
+	EPwm1Regs.TZEINT.bit.DCAEVT2=ET_ENABLE;
+	EPwm1Regs.TZEINT.bit.DCBEVT2=ET_ENABLE;
 	EDIS;
 
 	// Interrupt where we will change the Compare Values

@@ -150,6 +150,7 @@ extern Machine Charge_process;
 typedef enum _TAG_STATE_MACHINE
 {
 	STATE_STANDBY=0,
+	STATE_CALI_CURR_ZRO,
 	STATE_SOFT_START,
 	STATE_RUN,
 	STATE_RESTART_INIT,
@@ -242,15 +243,21 @@ extern PFC_FLAGS uPFCFlags;
 
 //#define mVbus_Control_Trig()		(uPFCFlags.b.bus_ctl)
 #define m200US_Trig()				(uPFCFlags.b.t200us_Triger)
-#define MAX_PFC_DUTY          		(u16)((double)EPWM_PFC_SW_FREQUENCY*0.50)
+#define MAX_PFC_DUTY          		(u16)((double)EPWM_PFC_SW_FREQUENCY*0.60)
 #define MIN_PFC_DUTY          		(u16)(3)
 
 #define AD_u16_I_AC_ZERO          		(1500)
 #define	PFC_BUS_VSQUARE_SAT				(1200)
 #define PRI_VBUS_OV_WARN          		(u16)((double)430*V_BULK_GAIN)
 #define PRI_VBUS_OV_FAULT          		(u16)((double)440*V_BULK_GAIN)
-#define PRI_VBUS_UP          			(u16)((double)360*V_BULK_GAIN)
-#define PRI_VBUS_60V          			(u16)((double)45*V_BULK_GAIN)
+#define PRI_VBUS_UP          			(u16)((double)50*V_BULK_GAIN)
+#define PRI_VBUS_45V          			(u16)((double)45*V_BULK_GAIN)
+#define PRI_VBUS_60V          			(u16)((double)60*V_BULK_GAIN)
+#define PRI_VBUS_80V          			(u16)((double)80*V_BULK_GAIN)
+#define PRI_VBUS_100V          			(u16)((double)100*V_BULK_GAIN)
+
+#define CNT_PWR_STAT_TIME_MS(x)   		(u16)((double)x*5)	//x<13100 ~ 13s
+
 
 //#define EPWM1A_DB						EPwm1Regs.DBRED 				
 //#define EPWM1B_DB						EPwm1Regs.DBFED 
@@ -358,6 +365,8 @@ extern PFC_FLAGS uPFCFlags;
 #define K16_VIN_100V_OC_FAULT_CLR_LIMIT  IP_A_IIN2(4)
 
 
+#define  Vol_loop_only
+
 //Voltage/3.3*4095*8=12280
 #define Temper_Vol(x) (uint16_t)((32760*(double)x)/3.3)
 //1.237-->110C
@@ -440,6 +449,7 @@ typedef unsigned char uint8_t;
 
 ////////////////////////////////////
 extern u16	AD_u16_I_AC;
+extern u16	AD_u16_CALI_I_ZRO;
 extern u16	AD_u16_U_HV_FB;
 extern u16	AD_u16_U_AC_L_FB;
 extern u16	AD_u16_U_AC_N_FB;

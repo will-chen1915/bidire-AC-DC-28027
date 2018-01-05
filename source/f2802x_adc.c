@@ -336,19 +336,15 @@ void InitComp ( void )
 	SysCtrlRegs.PCLKCR3.bit.COMP1ENCLK = 1;               // Enable clock to the Comparator 1 block 
 	Comp1Regs.COMPCTL.bit.COMPDACEN = 1;                  // Power up Comparator 1 locally
 	Comp1Regs.COMPCTL.bit.COMPSOURCE = 0;              // Connect the inverting input to the internal DAC
-	Comp1Regs.DACVAL.bit.DACVAL = 550;//775;				    // Set DAC output to midpoint
+	Comp1Regs.DACVAL.bit.DACVAL = 900;//775;				    // Set DAC output to midpoint  (10 bits)
+	Comp1Regs.COMPCTL.bit.CMPINV = 0;						//0~immd	1~invt
 
 	//COMP2 Boost OCP
-	SysCtrlRegs.PCLKCR3.bit.COMP2ENCLK = 1;               // Enable clock to the Comparator 1 block 
-	Comp2Regs.COMPCTL.bit.COMPDACEN = 1;                  // Power up Comparator 1 locally
-	Comp2Regs.COMPCTL.bit.COMPSOURCE = 0;              // Connect the inverting input to the internal DAC
-	Comp2Regs.DACVAL.bit.DACVAL = 900;				    // Set DAC output to midpoint
+//	SysCtrlRegs.PCLKCR3.bit.COMP2ENCLK = 1;               // Enable clock to the Comparator 1 block 
+//	Comp2Regs.COMPCTL.bit.COMPDACEN = 1;                  // Power up Comparator 1 locally
+//	Comp2Regs.COMPCTL.bit.COMPSOURCE = 0;              // Connect the inverting input to the internal DAC
+//	Comp2Regs.DACVAL.bit.DACVAL = 900;				    // Set DAC output to midpoint
 
-//	//COMP3 Boost OVP
-//	SysCtrlRegs.PCLKCR3.bit.COMP3ENCLK = 1;               // Enable clock to the Comparator 1 block 
-//	Comp3Regs.COMPCTL.bit.COMPDACEN = 1;                  // Power up Comparator 1 locally
-//	Comp3Regs.COMPCTL.bit.COMPSOURCE = 0;              // Connect the inverting input to the internal DAC
-//	Comp3Regs.DACVAL.bit.DACVAL = 700;			//900V	    // Set DAC output to midpoint
 	EDIS;
 }
 

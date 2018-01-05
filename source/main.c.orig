@@ -167,7 +167,7 @@ void main ( void )
 	InitAdc();
 	AdcOffsetSelfCal();
 	ConfigureADC();
-	InitComp();
+//	InitComp();
 
 //initialize the SCI
 	InitSci();
@@ -183,8 +183,13 @@ void main ( void )
 	PFC_PROTECT2_EN();
 	PFC_PROTECT3_EN();
 
+//	PFC_PROTECT1_DIS();
+//	PFC_PROTECT2_DIS();
+//	PFC_PROTECT3_DIS();
+
 	TEST_CLR();
 	LED_ON();
+	uPFCFlags.b.AC_UV =1;
 
 	Vbus_Control_Init();
 
@@ -213,11 +218,12 @@ void main ( void )
 // Step 6. IDLE loop. Just sit and loop forever (optional):
 	for ( ;; )
 	{
+//		LED_TOGGLE();
 
 //		analog_ChkZeroCross();
 		analog_ChkInputFreq();
 		analog_ChkInputCalc();
-		
+
 		period_200us_repetitive();
 		period_1ms_repetitive ();
 
@@ -226,14 +232,13 @@ void main ( void )
 			uPFCFlags.b.t200us_Triger = 0;
 			Filter_date();
 			Power_state_control();
-			Vbus_Feedforward_Scaling();
 			Check_Fast_Bus_Voltage_Conditions();
 			Vbus_Generate_Err();
-			SCICommu_Control();				// SCI Communication(46K80)
 
 			Vbus_Control();
-
 			
+			Vbus_Feedforward_Scaling();
+		
 //			LED_TOGGLE();
 
 #if 0
@@ -259,50 +264,58 @@ void main ( void )
 		if ( uPFCFlags.b.t1ms_Triger )
 		{
 			uPFCFlags.b.t1ms_Triger = 0;
-			
-			if(u16Xvin<100)
-			{				
-				if(temp_vin_UV>10)
+
+			temp1++;
+			if(temp1>10)
+				{
+				temp1=0;
+				SCICommu_Control(); 			// SCI Communication(46K80)
+			}
+
+			if ( u16Xvin<30 )
+			{
+				if ( temp_vin_UV>10 )
 				{
 					uPFCFlags.b.AC_UV = 1;
 					temp_vin_UV_Clr = 0;
 				}
 				else
-				temp_vin_UV++;	
+				{
+					temp_vin_UV++;
+				}
 			}
 			else
 			{
 				temp_vin_UV = 0;
-				if(temp_vin_UV_Clr > 800)
+				if ( temp_vin_UV_Clr > 800 )
 				{
 					uPFCFlags.b.AC_UV = 0;
 					temp_vin_UV_Clr = 0;
 				}
 				else
+				{
 					temp_vin_UV_Clr++;
-			}			
+				}
+			}
 		}
 
 
-		if(uPFCFlags.b.AC_UV)
+		if ( uPFCFlags.b.AC_UV )
 		{
-			
 			PFC_PROTECT1_EN();
 			PFC_PROTECT2_EN();
 			PFC_PROTECT3_EN();
 		}
-else
-{
-	PFC_PROTECT1_DIS();
-	PFC_PROTECT2_DIS();
-	PFC_PROTECT3_DIS();
+		else
+		{
+			PFC_PROTECT1_DIS();
+			PFC_PROTECT2_DIS();
+			PFC_PROTECT3_DIS();
+		}
 
 
-}
 
 
-		
-		
 		if ( uPFCFlags.b.bus_ctl )
 		{
 			uPFCFlags.b.bus_ctl = 0;
@@ -318,8 +331,8 @@ __interrupt void adc_isr ( void )
 	//Low periorty interrupt
 	EINT;   // Enable Global interrupt INTM
 	ERTM;   // Enable Global realtime interrupt DBGM
-	
-//	LED_TOGGLE();
+
+//	LED_ON();
 
 	//add code here
 	i16 temp_I_ref,temp_duty_I;
@@ -397,21 +410,41 @@ __interrupt void adc_isr ( void )
 	}
 
 
-	if ( AD_u16_I_AC > AD_u16_I_AC_ZERO )
+	if ( AD_u16_I_AC > AD_u16_CALI_I_ZRO )
 	{
-		u16Xiin = AD_u16_I_AC - AD_u16_I_AC_ZERO;
+		u16Xiin = AD_u16_I_AC - AD_u16_CALI_I_ZRO;
 	}
 	else
 	{
-		u16Xiin = AD_u16_I_AC_ZERO - AD_u16_I_AC;
+		u16Xiin = AD_u16_CALI_I_ZRO - AD_u16_I_AC;
 	}
+
+	//u16Xiin=0;
+	
 
 
 	//PFC current loop
 	//uIsenseAdj to be optimized
-	temp_I_ref = uIsenseAdj + ( u16 ) ( (u32)( uIctl_Ref*u16Xvin ) >>16 );
+	//uIctl_Ref=65500;
+	//u16Xvin=10;
+	uIsenseAdj=0;
 
-	temp_duty_I = PI_Boost_internal ( temp_I_ref, u16Xiin, (((u32)MAX_PFC_DUTY)<<16), &CTRL2P2Z_COEFF_current_LOOP, (((u32)MIN_PFC_DUTY)<<16) );
+	
+	/*	
+	temp_I_ref = uIsenseAdj + ( u16 ) (  ( (( u32 )uIctl_Ref)*u16Xvin ) >>16 );
+	
+
+	temp_duty_I = PI_Boost_internal ( temp_I_ref, u16Xiin, ( ( ( u32 ) MAX_PFC_DUTY ) <<16 ), &CTRL2P2Z_COEFF_current_LOOP, ( ( ( u32 ) MIN_PFC_DUTY ) <<16 ) );
+*/
+
+#ifdef  Vol_loop_only
+	temp_duty_I=(uIctl_Ref>>5);		//MAX Duty = 1015/1500
+#else
+
+		temp_I_ref = uIsenseAdj + ( u16 ) (  ( (( u32 )uIctl_Ref)*u16Xvin ) >>16 );
+		temp_duty_I = PI_Boost_internal ( temp_I_ref, u16Xiin, ( ( ( u32 ) MAX_PFC_DUTY ) <<16 ), &CTRL2P2Z_COEFF_current_LOOP, ( ( ( u32 ) MIN_PFC_DUTY ) <<16 ) );
+		
+#endif
 
 //	temp_duty_I= 300;
 
@@ -432,7 +465,7 @@ __interrupt void adc_isr ( void )
 //{
 //	temp_duty_I =(u16)(MAX_PFC_DUTY*0.6) ;
 //}
-//else 
+//else
 //{
 //	temp_duty_I =(u16)(MAX_PFC_DUTY*0.4) ;
 //}
@@ -491,34 +524,53 @@ __interrupt void adc_isr ( void )
 
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&*******************************************//
 
-if(!Flag_Txd)
-{
+	if ( !Flag_Txd )
+	{
 
-	Txd_buf[Flag_Txd_cnt]=0x55;
-	Flag_Txd_cnt++;
-	
-	Txd_buf[Flag_Txd_cnt]=(char)(u16Xvin>>8);
-	Flag_Txd_cnt++;
-	
-	Txd_buf[Flag_Txd_cnt]=(char)(u16Xvin&0x00ff);
-	Flag_Txd_cnt++;
-	Txd_buf[Flag_Txd_cnt]=(char)(u16Xiin>>8);;
-	Flag_Txd_cnt++;
-	Txd_buf[Flag_Txd_cnt]=(char)(u16Xiin&0x00ff);;
-	Flag_Txd_cnt++;
-		Txd_buf[Flag_Txd_cnt]=(char)(temp_duty_I>>8);;
-	Flag_Txd_cnt++;
-	
-	Txd_buf[Flag_Txd_cnt]=(char)(temp_duty_I&0x00ff);;
-	Flag_Txd_cnt++;
+		Txd_buf[Flag_Txd_cnt]=0x55;
+		Flag_Txd_cnt++;
 
-	
-	if(Flag_Txd_cnt>998)
-		{Flag_Txd=1;
-	Flag_Txd_cnt=0;
+		Txd_buf[Flag_Txd_cnt]= ( char ) ( u16Xvin>>8 );
+		Flag_Txd_cnt++;
+		Txd_buf[Flag_Txd_cnt]= ( char ) ( u16Xvin&0x00ff );
+		Flag_Txd_cnt++;
+		
+		Txd_buf[Flag_Txd_cnt]= ( char ) ( iVbus_Err>>8 );;
+		Flag_Txd_cnt++;
+		Txd_buf[Flag_Txd_cnt]= ( char ) ( iVbus_Err&0x00ff );;
+		Flag_Txd_cnt++;
+		
+		Txd_buf[Flag_Txd_cnt]= ( char ) ( temp_duty_I>>8 );;
+		Flag_Txd_cnt++;
+		Txd_buf[Flag_Txd_cnt]= ( char ) ( temp_duty_I&0x00ff );;
+		Flag_Txd_cnt++;
+
+		Txd_buf[Flag_Txd_cnt]= ( char ) ( uVbus_Area>>8 );;
+		Flag_Txd_cnt++;
+		Txd_buf[Flag_Txd_cnt]= ( char ) ( uVbus_Area&0x00ff );;
+		Flag_Txd_cnt++;
+
+		Txd_buf[Flag_Txd_cnt]= ( char ) ( u16AvgVbus>>8 );;
+		Flag_Txd_cnt++;
+		Txd_buf[Flag_Txd_cnt]= ( char ) ( u16AvgVbus&0x00ff );;
+		Flag_Txd_cnt++;
+
+		Txd_buf[Flag_Txd_cnt]= ( char ) ( u16Xiin>>8 );;
+		Flag_Txd_cnt++;
+		Txd_buf[Flag_Txd_cnt]= ( char ) ( u16Xiin&0x00ff );;
+		Flag_Txd_cnt++;
+		
+		Txd_buf[Flag_Txd_cnt]= ( char ) ( uPowerState&0x00ff );;
+		Flag_Txd_cnt++;
+
+
+		if ( Flag_Txd_cnt>998 )
+		{
+			Flag_Txd=1;
+			Flag_Txd_cnt=0;
 		}
 
-}
+	}
 
 
 
@@ -543,127 +595,29 @@ if(!Flag_Txd)
 #endif
 	AdcRegs.ADCINTFLGCLR.bit.ADCINT1 = 1;		//Clear ADCINT1 flag reinitialize for next SOC
 	PieCtrlRegs.PIEACK.all = PIEACK_GROUP1;   // Acknowledge interrupt to PIE
+
+	
+//	LED_OFF();
 }
 
+//==================================================================
 
-
-/*
-
-__interrupt void epwm1_isr ( void )
+void CBC_Config_L()
 {
-	// Update the CMPA and CMPB values
-	update_compare ( &epwm1_info );
-
-	// Clear INT flag for this timer
-	EPwm1Regs.ETCLR.bit.INT = 1;
-
-	// Acknowledge this interrupt to receive more interrupts from group 3
-	PieCtrlRegs.PIEACK.all = PIEACK_GROUP3;
+	EALLOW;
+	Comp1Regs.DACVAL.bit.DACVAL = 900;//775;					// Set DAC output to midpoint  (10 bits)
+	Comp1Regs.COMPCTL.bit.CMPINV = 0;						//0~immd	1~invt
+	EDIS;
 }
 
-__interrupt void epwm2_isr ( void )
+void CBC_Config_N()
 {
-	// Update the CMPA and CMPB values
-	update_compare ( &epwm2_info );
-
-	// Clear INT flag for this timer
-	EPwm2Regs.ETCLR.bit.INT = 1;
-
-	// Acknowledge this interrupt to receive more interrupts from group 3
-	PieCtrlRegs.PIEACK.all = PIEACK_GROUP3;
+	EALLOW;
+	Comp1Regs.DACVAL.bit.DACVAL = 100;//775;					// Set DAC output to midpoint  (10 bits)
+	Comp1Regs.COMPCTL.bit.CMPINV = 1;						//0~immd	1~invt
+	EDIS;
 }
 
-__interrupt void epwm3_isr ( void )
-{
-	// Update the CMPA and CMPB values
-	update_compare ( &epwm3_info );
-
-	// Clear INT flag for this timer
-	EPwm3Regs.ETCLR.bit.INT = 1;
-
-	// Acknowledge this interrupt to receive more interrupts from group 3
-	PieCtrlRegs.PIEACK.all = PIEACK_GROUP3;
-}
-
-void update_compare ( EPWM_INFO* epwm_info )
-{
-	// Every 10'th interrupt, change the CMPA/CMPB values
-	if ( epwm_info->EPwmTimerIntCount == 10 )
-	{
-		epwm_info->EPwmTimerIntCount = 0;
-
-		// If we were increasing CMPA, check to see if
-		// we reached the max value.  If not, increase CMPA
-		// else, change directions and decrease CMPA
-		if ( epwm_info->EPwm_CMPA_Direction == EPWM_CMP_UP )
-		{
-			if ( epwm_info->EPwmRegHandle->CMPA.half.CMPA < epwm_info->EPwmMaxCMPA )
-			{
-				epwm_info->EPwmRegHandle->CMPA.half.CMPA++;
-			}
-			else
-			{
-				epwm_info->EPwm_CMPA_Direction = EPWM_CMP_DOWN;
-				epwm_info->EPwmRegHandle->CMPA.half.CMPA--;
-			}
-		}
-
-		// If we were decreasing CMPA, check to see if
-		// we reached the min value.  If not, decrease CMPA
-		// else, change directions and increase CMPA
-		else
-		{
-			if ( epwm_info->EPwmRegHandle->CMPA.half.CMPA == epwm_info->EPwmMinCMPA )
-			{
-				epwm_info->EPwm_CMPA_Direction = EPWM_CMP_UP;
-				epwm_info->EPwmRegHandle->CMPA.half.CMPA++;
-			}
-			else
-			{
-				epwm_info->EPwmRegHandle->CMPA.half.CMPA--;
-			}
-		}
-
-		// If we were increasing CMPB, check to see if
-		// we reached the max value.  If not, increase CMPB
-		// else, change directions and decrease CMPB
-		if ( epwm_info->EPwm_CMPB_Direction == EPWM_CMP_UP )
-		{
-			if ( epwm_info->EPwmRegHandle->CMPB < epwm_info->EPwmMaxCMPB )
-			{
-				epwm_info->EPwmRegHandle->CMPB++;
-			}
-			else
-			{
-				epwm_info->EPwm_CMPB_Direction = EPWM_CMP_DOWN;
-				epwm_info->EPwmRegHandle->CMPB--;
-			}
-		}
-
-		// If we were decreasing CMPB, check to see if
-		// we reached the min value.  If not, decrease CMPB
-		// else, change directions and increase CMPB
-		else
-		{
-			if ( epwm_info->EPwmRegHandle->CMPB == epwm_info->EPwmMinCMPB )
-			{
-				epwm_info->EPwm_CMPB_Direction = EPWM_CMP_UP;
-				epwm_info->EPwmRegHandle->CMPB++;
-			}
-			else
-			{
-				epwm_info->EPwmRegHandle->CMPB--;
-			}
-		}
-	}
-	else
-	{
-		epwm_info->EPwmTimerIntCount++;
-	}
-
-	return;
-}
-*/
 
 //===========================================================================
 // No more.

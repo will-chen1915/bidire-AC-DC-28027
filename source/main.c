@@ -167,7 +167,7 @@ void main ( void )
 	InitAdc();
 	AdcOffsetSelfCal();
 	ConfigureADC();
-	InitComp();
+//	InitComp();
 
 //initialize the SCI
 	InitSci();
@@ -182,6 +182,10 @@ void main ( void )
 	PFC_PROTECT1_EN();
 	PFC_PROTECT2_EN();
 	PFC_PROTECT3_EN();
+
+//	PFC_PROTECT1_DIS();
+//	PFC_PROTECT2_DIS();
+//	PFC_PROTECT3_DIS();
 
 	TEST_CLR();
 	LED_ON();
@@ -214,6 +218,7 @@ void main ( void )
 // Step 6. IDLE loop. Just sit and loop forever (optional):
 	for ( ;; )
 	{
+//		LED_TOGGLE();
 
 //		analog_ChkZeroCross();
 		analog_ChkInputFreq();
@@ -227,12 +232,12 @@ void main ( void )
 			uPFCFlags.b.t200us_Triger = 0;
 			Filter_date();
 			Power_state_control();
-			Vbus_Feedforward_Scaling();
 			Check_Fast_Bus_Voltage_Conditions();
 			Vbus_Generate_Err();
 
 			Vbus_Control();
 
+			Vbus_Feedforward_Scaling();
 
 //			LED_TOGGLE();
 
@@ -261,8 +266,8 @@ void main ( void )
 			uPFCFlags.b.t1ms_Triger = 0;
 
 			temp1++;
-			if(temp1>10)
-				{
+			if ( temp1>10 )
+			{
 				temp1=0;
 				SCICommu_Control(); 			// SCI Communication(46K80)
 			}
@@ -374,7 +379,7 @@ __interrupt void adc_isr ( void )
 
 	if ( uPFCFlags.b.Is_positive_ture!=uFlag_turn_on )
 	{
-//		LED_TOGGLE();
+		LED_TOGGLE();
 		uFlag_turn_on=uPFCFlags.b.Is_positive_ture;
 		Latch_counter=0;
 		if ( uPFCFlags.b.Is_positive_ture )
@@ -405,31 +410,41 @@ __interrupt void adc_isr ( void )
 	}
 
 
-	if ( AD_u16_I_AC > AD_u16_I_AC_ZERO )
+	if ( AD_u16_I_AC > AD_u16_CALI_I_ZRO )
 	{
-		u16Xiin = AD_u16_I_AC - AD_u16_I_AC_ZERO;
+		u16Xiin = AD_u16_I_AC - AD_u16_CALI_I_ZRO;
 	}
 	else
 	{
-		u16Xiin = AD_u16_I_AC_ZERO - AD_u16_I_AC;
+		u16Xiin = AD_u16_CALI_I_ZRO - AD_u16_I_AC;
 	}
 
 	//u16Xiin=0;
-	
+
 
 
 	//PFC current loop
 	//uIsenseAdj to be optimized
 	//uIctl_Ref=65500;
 	//u16Xvin=10;
+	uIsenseAdj=0;
+
+
 	/*
 	temp_I_ref = uIsenseAdj + ( u16 ) (  ( (( u32 )uIctl_Ref)*u16Xvin ) >>16 );
-	
+
 
 	temp_duty_I = PI_Boost_internal ( temp_I_ref, u16Xiin, ( ( ( u32 ) MAX_PFC_DUTY ) <<16 ), &CTRL2P2Z_COEFF_current_LOOP, ( ( ( u32 ) MIN_PFC_DUTY ) <<16 ) );
-*/
+	*/
 
-	temp_duty_I=(uIctl_Ref>>5);
+#ifdef  Vol_loop_only
+	temp_duty_I= ( uIctl_Ref>>5 );		//MAX Duty = 1015/1500
+#else
+
+	temp_I_ref = uIsenseAdj + ( u16 ) (  ( ( ( u32 ) uIctl_Ref ) *u16Xvin ) >>16 );
+	temp_duty_I = PI_Boost_internal ( temp_I_ref, u16Xiin, ( ( ( u32 ) MAX_PFC_DUTY ) <<16 ), &CTRL2P2Z_COEFF_current_LOOP, ( ( ( u32 ) MIN_PFC_DUTY ) <<16 ) );
+
+#endif
 
 //	temp_duty_I= 300;
 
@@ -437,12 +452,21 @@ __interrupt void adc_isr ( void )
 //	{
 //		temp_duty_I = MIN_PFC_DUTY;
 //	}
+
 //	if ( u16Xiin > 800 )	//CBC
 //	{
 //		//		PFC_Off();
 //		uPFCFlags.b.CBC_OC = 1;
 //		temp_duty_I = MIN_PFC_DUTY;
 //	}
+
+	if ( u16AvgVbus > PRI_VBUS_80V )	//CBC
+	{
+		uPFCFlags.b.CBC_OC = 1;
+		temp_duty_I = MIN_PFC_DUTY;
+	}
+
+
 
 //temp1++;
 
@@ -511,7 +535,13 @@ __interrupt void adc_isr ( void )
 
 	if ( !Flag_Txd )
 	{
+#if 1
+		Txd_buf[Flag_Txd_cnt]= ( char ) ( u16Xiin>>8 );
+		Flag_Txd_cnt++;
+		Txd_buf[Flag_Txd_cnt]= ( char ) ( u16Xiin&0x00ff );
+		Flag_Txd_cnt++;
 
+#else
 		Txd_buf[Flag_Txd_cnt]=0x55;
 		Flag_Txd_cnt++;
 
@@ -519,12 +549,12 @@ __interrupt void adc_isr ( void )
 		Flag_Txd_cnt++;
 		Txd_buf[Flag_Txd_cnt]= ( char ) ( u16Xvin&0x00ff );
 		Flag_Txd_cnt++;
-		
-		Txd_buf[Flag_Txd_cnt]= ( char ) ( iVbus_Err>>8 );;
+
+		Txd_buf[Flag_Txd_cnt]= ( char ) ( temp_I_ref>>8 );;
 		Flag_Txd_cnt++;
-		Txd_buf[Flag_Txd_cnt]= ( char ) ( iVbus_Err&0x00ff );;
+		Txd_buf[Flag_Txd_cnt]= ( char ) ( temp_I_ref&0x00ff );;
 		Flag_Txd_cnt++;
-		
+
 		Txd_buf[Flag_Txd_cnt]= ( char ) ( temp_duty_I>>8 );;
 		Flag_Txd_cnt++;
 		Txd_buf[Flag_Txd_cnt]= ( char ) ( temp_duty_I&0x00ff );;
@@ -540,15 +570,21 @@ __interrupt void adc_isr ( void )
 		Txd_buf[Flag_Txd_cnt]= ( char ) ( u16AvgVbus&0x00ff );;
 		Flag_Txd_cnt++;
 
-	
+		Txd_buf[Flag_Txd_cnt]= ( char ) ( u16Xiin>>8 );;
+		Flag_Txd_cnt++;
+		Txd_buf[Flag_Txd_cnt]= ( char ) ( u16Xiin&0x00ff );;
+		Flag_Txd_cnt++;
 
+		Txd_buf[Flag_Txd_cnt]= ( char ) ( uPowerState&0x00ff );;
+		Flag_Txd_cnt++;
+
+#endif
 
 		if ( Flag_Txd_cnt>998 )
 		{
 			Flag_Txd=1;
 			Flag_Txd_cnt=0;
 		}
-
 	}
 
 
@@ -575,8 +611,26 @@ __interrupt void adc_isr ( void )
 	AdcRegs.ADCINTFLGCLR.bit.ADCINT1 = 1;		//Clear ADCINT1 flag reinitialize for next SOC
 	PieCtrlRegs.PIEACK.all = PIEACK_GROUP1;   // Acknowledge interrupt to PIE
 
-	
+
 //	LED_OFF();
+}
+
+//==================================================================
+
+void CBC_Config_L()
+{
+	EALLOW;
+	Comp1Regs.DACVAL.bit.DACVAL = 900;//775;					// Set DAC output to midpoint  (10 bits)
+	Comp1Regs.COMPCTL.bit.CMPINV = 0;						//0~immd	1~invt
+	EDIS;
+}
+
+void CBC_Config_N()
+{
+	EALLOW;
+	Comp1Regs.DACVAL.bit.DACVAL = 100;//775;					// Set DAC output to midpoint  (10 bits)
+	Comp1Regs.COMPCTL.bit.CMPINV = 1;						//0~immd	1~invt
+	EDIS;
 }
 
 
