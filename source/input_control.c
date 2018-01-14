@@ -25,8 +25,10 @@
 
 
 #define K16_VOL_ERROR               IP_V(15)
-#define K16_ZC_TH             			IP_V(55)
-#define K16_ZC_MARGIN         			IP_V(14.6)
+//#define K16_ZC_TH             			IP_V(55)
+//#define K16_ZC_MARGIN         			IP_V(14.6)
+#define K16_ZC_TH             			(30)
+#define K16_ZC_MARGIN         			(10)
 
 #define K16_ZC_ACWAVE_TH            IP_V(60)
 
@@ -139,7 +141,8 @@ static  uint32_t analog_calcRMS ( uint32_t u32SqrtArgSum, uint32_t u32SampleCnt 
 		return 0;
 	}
 
-	u32SqrtArg = ( uint32_t ) ( ( double ) u32SqrtArgSum/u32SampleCnt+0.5 );
+//	u32SqrtArg = ( uint32_t ) ( ( double ) u32SqrtArgSum/u32SampleCnt+0.5 );
+	u32SqrtArg = ( uint32_t ) ( u32SqrtArgSum/u32SampleCnt );
 	uAvgSqVin_z1 = (u32SqrtArg>>16);
 
 	if ( u32SqrtArg == 0 )
@@ -168,7 +171,8 @@ static  uint32_t analog_calcRMS ( uint32_t u32SqrtArgSum, uint32_t u32SampleCnt 
 	}
 	//Screen by kylegao 2015-11-17
 	//return (u32Rootsq<<2); // approximate root, 13bits<<2
-	return ( u32Rootsq<<3 ); // approximate root, 12bits<<3
+//	return ( u32Rootsq<<3 ); // approximate root, 12bits<<3
+	return ( u32Rootsq ); // approximate root, 12bits
 }
 
 /*******************************************************************************
@@ -374,7 +378,7 @@ static void analog_CalcIpParameters ( void )
 	//Calculate average ac half period
 	u32AcHalfPeriodAvg = movingAvg32 ( u32AcHalfPeriod, &s_avgAcHalfPeriod );
 	//If input is normal,u8IpSampleCnt is approximately equal to 190 :190K/100
-	u16IpVoltRMS = analog_calcRMS ( u32IpVoltSumOfSquare, u8IpSampleCnt ); //Q15
+	u16IpVoltRMS = analog_calcRMS ( u32IpVoltSumOfSquare, u8IpSampleCnt ); //Q12
 	u16IpVoltRMSAvg = movingAvg32 ( u16IpVoltRMS, &s_avgRMSVolt ); //Q15
 
 	//u16IpCurrentRMS = analog_calcRMS ( u32IpCurrSumOfSquare, u8IpSampleCnt ); //Q15

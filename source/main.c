@@ -205,9 +205,9 @@ void main ( void )
 //	PieCtrlRegs.PIEIER3.bit.INTx1 = 1;
 //	PieCtrlRegs.PIEIER3.bit.INTx2 = 1;
 
-	CTRL2P2Z_COEFF_current_LOOP.inter_A1=1800;//1600;
-	CTRL2P2Z_COEFF_current_LOOP.inter_A2=-1200;//-1400;
-	CTRL2P2Z_COEFF_current_LOOP.inter_A3=6;
+	CTRL2P2Z_COEFF_current_LOOP.inter_A1=24000;//30000//1600;
+	CTRL2P2Z_COEFF_current_LOOP.inter_A2=-17600;//-22000;//-23000//-25000//-28000;
+	CTRL2P2Z_COEFF_current_LOOP.inter_A3=5;
 
 	StartCpuTimer0();
 
@@ -215,12 +215,17 @@ void main ( void )
 	EINT;   // Enable Global interrupt INTM
 	ERTM;   // Enable Global realtime interrupt DBGM
 
+
 // Step 6. IDLE loop. Just sit and loop forever (optional):
 	for ( ;; )
 	{
 //		LED_TOGGLE();
+//		PFC_PROTECT1_DIS();
+//		PFC_PROTECT2_DIS();
+//		PFC_PROTECT3_DIS();
 
-//		analog_ChkZeroCross();
+
+		analog_ChkZeroCross();
 		analog_ChkInputFreq();
 		analog_ChkInputCalc();
 
@@ -266,51 +271,31 @@ void main ( void )
 			uPFCFlags.b.t1ms_Triger = 0;
 
 			temp1++;
-			if ( temp1>10 )
+			if ( temp1>10 )	//once 10ms
 			{
 				temp1=0;
 				SCICommu_Control(); 			// SCI Communication(46K80)
 			}
 
-			if ( u16Xvin<30 )
-			{
-				if ( temp_vin_UV>10 )
-				{
-					uPFCFlags.b.AC_UV = 1;
-					temp_vin_UV_Clr = 0;
-				}
-				else
-				{
-					temp_vin_UV++;
-				}
-			}
-			else
-			{
-				temp_vin_UV = 0;
-				if ( temp_vin_UV_Clr > 800 )
-				{
-					uPFCFlags.b.AC_UV = 0;
-					temp_vin_UV_Clr = 0;
-				}
-				else
-				{
-					temp_vin_UV_Clr++;
-				}
-			}
+
 		}
 
-
+//		uPFCFlags.b.AC_UV = 1;
 		if ( uPFCFlags.b.AC_UV )
 		{
-			PFC_PROTECT1_EN();
-			PFC_PROTECT2_EN();
-			PFC_PROTECT3_EN();
+//			PFC_PROTECT1_EN();
+//			PFC_PROTECT2_EN();
+//			PFC_PROTECT3_EN();
+
+			LED_ON();
 		}
 		else
 		{
 			PFC_PROTECT1_DIS();
 			PFC_PROTECT2_DIS();
 			PFC_PROTECT3_DIS();
+
+			LED_OFF();
 		}
 
 
@@ -340,6 +325,7 @@ __interrupt void adc_isr ( void )
 	static u16 Latch_counter=0;
 	static u16 u16Negitive_Cnt=0;
 	static u16 u16Positive_Cnt=0;
+	static u16 Once_Secondary=0;
 //	static long u32Max_duty_soft=0x1b00000;//432*16 //48%//0x1950000;//405*16;//45%
 
 	AD_u16_I_AC 	= AdcResult.ADCRESULT0;
@@ -379,7 +365,7 @@ __interrupt void adc_isr ( void )
 
 	if ( uPFCFlags.b.Is_positive_ture!=uFlag_turn_on )
 	{
-		LED_TOGGLE();
+//		LED_TOGGLE();
 		uFlag_turn_on=uPFCFlags.b.Is_positive_ture;
 		Latch_counter=0;
 		if ( uPFCFlags.b.Is_positive_ture )
@@ -407,6 +393,7 @@ __interrupt void adc_isr ( void )
 //			PWMA_SM0TCTRL=0x01;
 //			XBARA_SEL6=0x1212;
 		}
+
 	}
 
 
@@ -438,10 +425,14 @@ __interrupt void adc_isr ( void )
 	*/
 
 #ifdef  Vol_loop_only
-	temp_duty_I= ( uIctl_Ref>>5 );		//MAX Duty = 1015/1500
+	temp_duty_I = ( uIctl_Ref>>5 );		//MAX Duty = 1015/1500
 #else
 
-	temp_I_ref = uIsenseAdj + ( u16 ) (  ( ( ( u32 ) uIctl_Ref ) *u16Xvin ) >>16 );
+	temp_I_ref = uIsenseAdj + ( u16 ) (  ( ( ( u32 ) uIctl_Ref ) *u16Xvin ) >>12 );
+
+
+//	temp_I_ref = u16Xiin + 10;
+
 	temp_duty_I = PI_Boost_internal ( temp_I_ref, u16Xiin, ( ( ( u32 ) MAX_PFC_DUTY ) <<16 ), &CTRL2P2Z_COEFF_current_LOOP, ( ( ( u32 ) MIN_PFC_DUTY ) <<16 ) );
 
 #endif
@@ -460,7 +451,7 @@ __interrupt void adc_isr ( void )
 //		temp_duty_I = MIN_PFC_DUTY;
 //	}
 
-	if ( u16AvgVbus > PRI_VBUS_80V )	//CBC
+	if ( u16AvgVbus > PRI_VBUS_420V )	//CBC
 	{
 		uPFCFlags.b.CBC_OC = 1;
 		temp_duty_I = MIN_PFC_DUTY;
@@ -533,58 +524,89 @@ __interrupt void adc_isr ( void )
 
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&*******************************************//
 
-	if ( !Flag_Txd )
+	if ( Once_Secondary++>1 )
 	{
+		Once_Secondary=0;
+		if ( !Flag_Txd )
+		{
 #if 1
-		Txd_buf[Flag_Txd_cnt]= ( char ) ( u16Xiin>>8 );
-		Flag_Txd_cnt++;
-		Txd_buf[Flag_Txd_cnt]= ( char ) ( u16Xiin&0x00ff );
-		Flag_Txd_cnt++;
+			Txd_buf[Flag_Txd_cnt]=0x55;
+			Flag_Txd_cnt++;
+			Txd_buf[Flag_Txd_cnt]= ( char ) ( u16Xiin>>8 );
+			Flag_Txd_cnt++;
+			Txd_buf[Flag_Txd_cnt]= ( char ) ( u16Xiin&0x00ff );
+			Flag_Txd_cnt++;
+//		Txd_buf[Flag_Txd_cnt]= ( char ) ( u16Xvin>>8 );
+//		Flag_Txd_cnt++;
+//		Txd_buf[Flag_Txd_cnt]= ( char ) ( u16Xvin&0x00ff );
+//		Flag_Txd_cnt++;
+			Txd_buf[Flag_Txd_cnt]= ( char ) ( temp_duty_I>>8 );
+			Flag_Txd_cnt++;
+			Txd_buf[Flag_Txd_cnt]= ( char ) ( temp_duty_I&0x00ff );
+			Flag_Txd_cnt++;
+			Txd_buf[Flag_Txd_cnt]= ( char ) ( temp_I_ref>>8 );
+			Flag_Txd_cnt++;
+			Txd_buf[Flag_Txd_cnt]= ( char ) ( temp_I_ref&0x00ff );
+			Flag_Txd_cnt++;
+//		Txd_buf[Flag_Txd_cnt]= ( char ) ( CTRL2P2Z_COEFF_current_LOOP.error_z1>>8 );
+//		Flag_Txd_cnt++;
+//		Txd_buf[Flag_Txd_cnt]= ( char ) ( CTRL2P2Z_COEFF_current_LOOP.error_z1&0x00ff );
+//		Flag_Txd_cnt++;
+//		Txd_buf[Flag_Txd_cnt]= ( char ) ( uVbus_Ref>>8 );
+//		Flag_Txd_cnt++;
+//		Txd_buf[Flag_Txd_cnt]= ( char ) ( uVbus_Ref&0x00ff );
+//		Flag_Txd_cnt++;
 
 #else
-		Txd_buf[Flag_Txd_cnt]=0x55;
-		Flag_Txd_cnt++;
+			Txd_buf[Flag_Txd_cnt]=0x55;
+			Flag_Txd_cnt++;
 
-		Txd_buf[Flag_Txd_cnt]= ( char ) ( u16Xvin>>8 );
-		Flag_Txd_cnt++;
-		Txd_buf[Flag_Txd_cnt]= ( char ) ( u16Xvin&0x00ff );
-		Flag_Txd_cnt++;
+			Txd_buf[Flag_Txd_cnt]= ( char ) ( u16Xvin>>8 );
+			Flag_Txd_cnt++;
+			Txd_buf[Flag_Txd_cnt]= ( char ) ( u16Xvin&0x00ff );
+			Flag_Txd_cnt++;
 
-		Txd_buf[Flag_Txd_cnt]= ( char ) ( temp_I_ref>>8 );;
-		Flag_Txd_cnt++;
-		Txd_buf[Flag_Txd_cnt]= ( char ) ( temp_I_ref&0x00ff );;
-		Flag_Txd_cnt++;
+			Txd_buf[Flag_Txd_cnt]= ( char ) ( temp_I_ref>>8 );;
+			Flag_Txd_cnt++;
+			Txd_buf[Flag_Txd_cnt]= ( char ) ( temp_I_ref&0x00ff );;
+			Flag_Txd_cnt++;
 
-		Txd_buf[Flag_Txd_cnt]= ( char ) ( temp_duty_I>>8 );;
-		Flag_Txd_cnt++;
-		Txd_buf[Flag_Txd_cnt]= ( char ) ( temp_duty_I&0x00ff );;
-		Flag_Txd_cnt++;
+			Txd_buf[Flag_Txd_cnt]= ( char ) ( temp_duty_I>>8 );;
+			Flag_Txd_cnt++;
+			Txd_buf[Flag_Txd_cnt]= ( char ) ( temp_duty_I&0x00ff );;
+			Flag_Txd_cnt++;
 
-		Txd_buf[Flag_Txd_cnt]= ( char ) ( uVbus_Area>>8 );;
-		Flag_Txd_cnt++;
-		Txd_buf[Flag_Txd_cnt]= ( char ) ( uVbus_Area&0x00ff );;
-		Flag_Txd_cnt++;
+			Txd_buf[Flag_Txd_cnt]= ( char ) ( uVbus_Area>>8 );;
+			Flag_Txd_cnt++;
+			Txd_buf[Flag_Txd_cnt]= ( char ) ( uVbus_Area&0x00ff );;
+			Flag_Txd_cnt++;
 
-		Txd_buf[Flag_Txd_cnt]= ( char ) ( u16AvgVbus>>8 );;
-		Flag_Txd_cnt++;
-		Txd_buf[Flag_Txd_cnt]= ( char ) ( u16AvgVbus&0x00ff );;
-		Flag_Txd_cnt++;
+			Txd_buf[Flag_Txd_cnt]= ( char ) ( u16AvgVbus>>8 );;
+			Flag_Txd_cnt++;
+			Txd_buf[Flag_Txd_cnt]= ( char ) ( u16AvgVbus&0x00ff );;
+			Flag_Txd_cnt++;
 
-		Txd_buf[Flag_Txd_cnt]= ( char ) ( u16Xiin>>8 );;
-		Flag_Txd_cnt++;
-		Txd_buf[Flag_Txd_cnt]= ( char ) ( u16Xiin&0x00ff );;
-		Flag_Txd_cnt++;
+			Txd_buf[Flag_Txd_cnt]= ( char ) ( u16Xiin>>8 );;
+			Flag_Txd_cnt++;
+			Txd_buf[Flag_Txd_cnt]= ( char ) ( u16Xiin&0x00ff );;
+			Flag_Txd_cnt++;
 
-		Txd_buf[Flag_Txd_cnt]= ( char ) ( uPowerState&0x00ff );;
-		Flag_Txd_cnt++;
+			Txd_buf[Flag_Txd_cnt]= ( char ) ( uPowerState&0x00ff );;
+			Flag_Txd_cnt++;
 
 #endif
 
-		if ( Flag_Txd_cnt>998 )
-		{
-			Flag_Txd=1;
-			Flag_Txd_cnt=0;
+			if ( Flag_Txd_cnt> ( test_cnt-20 ) )
+			{
+				Flag_Txd=1;
+				Flag_Txd_cnt=0;
+			}
 		}
+
+
+
+
+
 	}
 
 
@@ -592,6 +614,34 @@ __interrupt void adc_isr ( void )
 
 
 
+	if ( u16Xvin<260 )	//50VRMS~300ADC
+	{
+		if ( temp_vin_UV>100 )
+		{
+			uPFCFlags.b.AC_UV = 1;
+//					LED_ON();
+			temp_vin_UV_Clr = 0;
+		}
+		else
+		{
+			temp_vin_UV++;
+		}
+
+	}
+	else
+	{
+		temp_vin_UV = 0;
+		if ( temp_vin_UV_Clr > 100 )
+		{
+			uPFCFlags.b.AC_UV = 0;
+//					LED_OFF();
+			temp_vin_UV_Clr = 0;
+		}
+		else
+		{
+			temp_vin_UV_Clr++;
+		}
+	}
 
 
 
@@ -606,6 +656,8 @@ __interrupt void adc_isr ( void )
 	{
 		u8IpSampleCnt = 255;
 	}
+
+//	LED_TOGGLE();
 
 #endif
 	AdcRegs.ADCINTFLGCLR.bit.ADCINT1 = 1;		//Clear ADCINT1 flag reinitialize for next SOC

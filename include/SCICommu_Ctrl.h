@@ -4,8 +4,9 @@
 
 #include "DSP28x_Project.h"     // Device Headerfile and Examples Include File
 
-
 #define MAX_SCI_SIZE 64
+
+#define test_cnt 		1500
 
 
 typedef struct AppPacket
@@ -25,7 +26,7 @@ typedef struct SciPacket
 
 extern Sci_packet_t* Rxd_buf;
  
-extern unsigned short	Txd_buf[1000];
+extern unsigned short	Txd_buf[test_cnt];
 
 extern void SCICommu_Control ( void );
 

@@ -243,7 +243,7 @@ extern PFC_FLAGS uPFCFlags;
 
 //#define mVbus_Control_Trig()		(uPFCFlags.b.bus_ctl)
 #define m200US_Trig()				(uPFCFlags.b.t200us_Triger)
-#define MAX_PFC_DUTY          		(u16)((double)EPWM_PFC_SW_FREQUENCY*0.60)
+#define MAX_PFC_DUTY          		(u16)((double)EPWM_PFC_SW_FREQUENCY*0.95)
 #define MIN_PFC_DUTY          		(u16)(3)
 
 #define AD_u16_I_AC_ZERO          		(1500)
@@ -255,6 +255,18 @@ extern PFC_FLAGS uPFCFlags;
 #define PRI_VBUS_60V          			(u16)((double)60*V_BULK_GAIN)
 #define PRI_VBUS_80V          			(u16)((double)80*V_BULK_GAIN)
 #define PRI_VBUS_100V          			(u16)((double)100*V_BULK_GAIN)
+#define PRI_VBUS_120V          			(u16)((double)120*V_BULK_GAIN)
+#define PRI_VBUS_140V          			(u16)((double)140*V_BULK_GAIN)
+#define PRI_VBUS_160V          			(u16)((double)160*V_BULK_GAIN)
+#define PRI_VBUS_180V          			(u16)((double)180*V_BULK_GAIN)
+#define PRI_VBUS_200V          			(u16)((double)200*V_BULK_GAIN)
+#define PRI_VBUS_250V          			(u16)((double)250*V_BULK_GAIN)
+#define PRI_VBUS_300V          			(u16)((double)300*V_BULK_GAIN)
+#define PRI_VBUS_350V          			(u16)((double)350*V_BULK_GAIN)
+#define PRI_VBUS_380V          			(u16)((double)380*V_BULK_GAIN)
+#define PRI_VBUS_400V          			(u16)((double)400*V_BULK_GAIN)
+#define PRI_VBUS_420V          			(u16)((double)420*V_BULK_GAIN)
+#define PRI_VBUS_450V          			(u16)((double)450*V_BULK_GAIN)
 
 #define CNT_PWR_STAT_TIME_MS(x)   		(u16)((double)x*5)	//x<13100 ~ 13s
 
@@ -318,7 +330,7 @@ extern PFC_FLAGS uPFCFlags;
 //#define IPV_RANGE   		(446.8)	// Input voltage measurable range, V
 #define IPV_RANGE   		(442.4)	// Input voltage measurable range, V
 
-#define IP_V(x)     		((uint16_t)((double)x*RESOLUTION/IPV_RANGE)) // Input voltage scale in Q15
+#define IP_V(x)     		((uint16_t)((double)x*ADC_RESOLUTION/IPV_RANGE)) // Input voltage scale in Q15
 
 
 
@@ -365,7 +377,9 @@ extern PFC_FLAGS uPFCFlags;
 #define K16_VIN_100V_OC_FAULT_CLR_LIMIT  IP_A_IIN2(4)
 
 
-#define  Vol_loop_only
+#define  test_cnt   1500
+
+//#define  Vol_loop_only
 
 //Voltage/3.3*4095*8=12280
 #define Temper_Vol(x) (uint16_t)((32760*(double)x)/3.3)
@@ -466,6 +480,7 @@ extern u16	uVbus_Gain_Adj_AC;
 extern u16	uIsenseAdj;
 extern u16 u8IpSampleCnt;
 extern u32 u32IpVoltSumOfSquare;
+extern u16 u16IpVoltRMS;
 extern u16	uAvgSqVin_z1;
 extern u16	uVbus_Ref_Target;
 extern u16	Flag_Txd;

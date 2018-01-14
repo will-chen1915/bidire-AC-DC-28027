@@ -14,7 +14,7 @@ Uint16 KP_set = 0;
 Uint16 KI_set = 0;
 Uint16 KD_set = 0;
 
-u16	Txd_buf[1000];
+u16	Txd_buf[test_cnt];
 u16 Txd_Cnt=0;
 
 
@@ -81,7 +81,7 @@ void SCI_DoTx ( void )
 		SciaRegs.SCITXBUF = Txd_buf[Txd_Cnt++];
 //		SciaRegs.SCITXBUF = 0x54;
 	}
-	if (Txd_Cnt==998)
+	if (Txd_Cnt>=(test_cnt-30))
 	{Txd_Cnt=0;
 	Flag_Txd=0;}
 

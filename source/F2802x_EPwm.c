@@ -169,14 +169,14 @@ void InitEPwm4Gpio ( void )
 // Comment out other unwanted lines.
 
 	GpioCtrlRegs.GPAPUD.bit.GPIO6 = 1;    // Disable pull-up on GPIO6 (EPWM4A)
-	GpioCtrlRegs.GPAPUD.bit.GPIO7 = 1;    // Disable pull-up on GPIO7 (EPWM4B)
+//	GpioCtrlRegs.GPAPUD.bit.GPIO7 = 1;    // Disable pull-up on GPIO7 (EPWM4B)
 
 	/* Configure EPWM-4 pins using GPIO regs*/
 // This specifies which of the possible GPIO pins will be EPWM4 functional pins.
 // Comment out other unwanted lines.
 
 	GpioCtrlRegs.GPAMUX1.bit.GPIO6 = 1;   // Configure GPIO6 as EPWM4A
-	GpioCtrlRegs.GPAMUX1.bit.GPIO7 = 1;   // Configure GPIO7 as EPWM4B
+//	GpioCtrlRegs.GPAMUX1.bit.GPIO7 = 1;   // Configure GPIO7 as EPWM4B
 
 	EDIS;
 }
@@ -449,7 +449,7 @@ void InitEPwm1()		//LLC1 DRV
 	// Trig ADC;
 	EPwm1Regs.ETSEL.bit.SOCAEN	= ET_ENABLE;		// Enable SOC on A group --ADC_B1~I_Boost_1
 	EPwm1Regs.ETSEL.bit.SOCASEL = ET_CTR_PRD;		// Select SOC from PRD
-	EPwm1Regs.ETPS.bit.SOCAPRD	= ET_2ND;		// Generate pulse on 1st event
+	EPwm1Regs.ETPS.bit.SOCAPRD	= ET_1ST;		// Generate pulse on 1st event
 
 	// Configure TZ1 for software control
 	EALLOW;

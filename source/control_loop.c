@@ -62,8 +62,8 @@ void Vbus_Control_Init ( void )
 	iVbus_Err = 0;
 //	uPfc_bus_area_high_lim = PFC_BUS_AREA_HIGH_LIM;
 	CTRL2P2Z_COEFF_VOLTAGE_LOOP.inter_A1=3600;//1600;//16000
-	CTRL2P2Z_COEFF_VOLTAGE_LOOP.inter_A2=-3200;//-1400;//-14000
-	CTRL2P2Z_COEFF_VOLTAGE_LOOP.inter_A3=40;//2;//10
+	CTRL2P2Z_COEFF_VOLTAGE_LOOP.inter_A2=-3400;//-1400;//-14000
+	CTRL2P2Z_COEFF_VOLTAGE_LOOP.inter_A3=0;//2;//10
 }
 
 
@@ -76,7 +76,10 @@ short PI_Boost_internal ( int Voutref, int VoutT,int32 Max_out,CTRL2P2Z_coeff* C
 	int16 error;
 
 	error =  Voutref- VoutT ;
-
+	if ( ( error<3270 ) || ( error> ( -3270 ) ) )
+	{
+		error = error*10;
+	}
 
 	temp1 = CTRL2p2z->inter_A1 * ( int32 ) error ;
 	temp2= ( CTRL2p2z->inter_A2 * ( int32 ) CTRL2p2z->error_z1 );
@@ -193,16 +196,34 @@ void Vbus_Control ( void )
 	// temp_err=uVbus_Err>>4;
 	//DAC_write(temp_err);
 	short temp_duty_V;
-
+	static short cnt_Bus_soft_start=0;
 	//TODO
 
-	iVbus_Err = PRI_VBUS_60V - u16AvgVbus;
+	if ( uPFCFlags.b.AC_UV == 1 )
+	{
+		uVbus_Ref=u16AvgVbus;
+	}
+	else
+	{
+//		if ( cnt_Bus_soft_start++>10 )
+		if ( cnt_Bus_soft_start++>150 )
+		{
+			cnt_Bus_soft_start=0;
+			if ( uVbus_Ref<PRI_VBUS_380V )
+			{
+				uVbus_Ref++;
+			}
+		}
+	}
+
+
+	iVbus_Err = uVbus_Ref - u16AvgVbus;
 
 //	temp_duty_V = PI_VBus ( ( int16 ) iVbus_Err, (u32)(65500<<16), &CTRL2P2Z_COEFF_VOLTAGE_LOOP, 0 );	//0x4E1FB1E0 = 20000*2^16
 	temp_duty_V = PI_VBus ( iVbus_Err, ( 0x7FEE0000 ), &CTRL2P2Z_COEFF_VOLTAGE_LOOP, 0 );	//0x4E1FB1E0 = 20000*2^16
 	if ( PRI_VBUS_100V <u16AvgVbus )
 	{
-		LED_TOGGLE();
+//		LED_TOGGLE();
 	}
 	uVbus_Area = temp_duty_V;
 
