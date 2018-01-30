@@ -39,14 +39,14 @@ PFC_FLAGS uPFCFlags;
 //P_FLAGS uPFlags;
 
 /********************************************************************************/
-void PFC_On ( void )
+void PFC_ON ( void )
 {
 	EALLOW;
 //	EPwm1Regs.TZCLR.bit.OST = TZ_ENABLE;//BOOST 1
 	EDIS;
 }
 /********************************************************************************/
-void PFC_Off ( void )
+void PFC_OFF ( void )
 {
 	EALLOW;
 //	EPwm1Regs.TZFRC.bit.OST = TZ_ENABLE;//BOOST1
@@ -67,15 +67,16 @@ void Vbus_Control_Init ( void )
 }
 
 
-short PI_Boost_internal ( int Voutref, int VoutT,int32 Max_out,CTRL2P2Z_coeff* CTRL2p2z,int32 U32Min_out )
+//short PI_Boost_internal ( int Voutref, int VoutT,int32 Max_out,CTRL2P2Z_coeff* CTRL2p2z,int32 U32Min_out )
+short PI_Boost_internal ( int16 error, int32 Max_out,CTRL2P2Z_coeff* CTRL2p2z,int32 U32Min_out )
 {
 	/* Compute PI for Boost Mode */
 	/* Every time the PI order sets extreme values then CTMax or CTMin are managed */
 	unsigned short  pid_out;
 	int32 temp1,temp2,temp3;
-	int16 error;
+//	int16 error;
 
-	error =  Voutref- VoutT ;
+//	error =  Voutref- VoutT ;
 	if ( ( error<3270 ) || ( error> ( -3270 ) ) )
 	{
 		error = error*10;
@@ -209,15 +210,36 @@ void Vbus_Control ( void )
 		if ( cnt_Bus_soft_start++>150 )
 		{
 			cnt_Bus_soft_start=0;
-			if ( uVbus_Ref<PRI_VBUS_380V )
+			if ( uVbus_Ref<PRI_VBUS_350V )
+			{
+				uVbus_Ref=uVbus_Ref+5;
+			}
+			else if ( uVbus_Ref<PRI_VBUS_380V )
 			{
 				uVbus_Ref++;
+
+			}
+			else
+			{
+				uVbus_Ref = PRI_VBUS_380V;
+
 			}
 		}
 	}
 
 
 	iVbus_Err = uVbus_Ref - u16AvgVbus;
+
+	if ( iVbus_Err>PRI_VBUS_30V )
+	{
+		iVbus_Err=iVbus_Err*3;
+	}
+	else if ( iVbus_Err< ( 0-PRI_VBUS_30V ) )
+	{
+		iVbus_Err=iVbus_Err*3;
+	}
+
+
 
 //	temp_duty_V = PI_VBus ( ( int16 ) iVbus_Err, (u32)(65500<<16), &CTRL2P2Z_COEFF_VOLTAGE_LOOP, 0 );	//0x4E1FB1E0 = 20000*2^16
 	temp_duty_V = PI_VBus ( iVbus_Err, ( 0x7FEE0000 ), &CTRL2P2Z_COEFF_VOLTAGE_LOOP, 0 );	//0x4E1FB1E0 = 20000*2^16

@@ -88,6 +88,8 @@ __interrupt void adc_isr ( void );
 void analog_ChkZeroCross ( void );
 void analog_ChkInputFreq ( void );
 void analog_ChkInputCalc ( void );
+void CBC_Config_L ( void );
+void CBC_Config_N ( void );
 
 //__interrupt void epwm1_isr ( void );
 //__interrupt void epwm2_isr ( void );
@@ -167,15 +169,16 @@ void main ( void )
 	InitAdc();
 	AdcOffsetSelfCal();
 	ConfigureADC();
-//	InitComp();
+	InitComp();
 
 //initialize the SCI
 	InitSci();
 
 // initialize the ePWM
 	InitEPwm();
-	PFC_On();
+	PFC_ON();
 	RELAY_OFF();
+	IO_2_SEC_PFC_OFF();
 	GH_SR_ClrVal();
 	GL_SR_ClrVal();
 
@@ -193,6 +196,11 @@ void main ( void )
 
 	Vbus_Control_Init();
 
+	CTRL2P2Z_COEFF_current_LOOP.inter_A1= ( ( signed short ) ( ( double ) 24000*0.8 ) ); //30000//1600;
+	CTRL2P2Z_COEFF_current_LOOP.inter_A2= ( ( signed short ) ( ( double )-17600*0.8 ) ); //-22000;//-23000//-25000//-28000;
+	CTRL2P2Z_COEFF_current_LOOP.inter_A3= ( ( signed short ) ( ( double ) 5*0.8 ) );
+
+
 // Step 5. User specific code, enable interrupts:
 
 // Enable ADCINT1 in PIE
@@ -204,11 +212,6 @@ void main ( void )
 // Enable EPWM INTn in the PIE: Group 3 interrupt 1-3
 //	PieCtrlRegs.PIEIER3.bit.INTx1 = 1;
 //	PieCtrlRegs.PIEIER3.bit.INTx2 = 1;
-
-	CTRL2P2Z_COEFF_current_LOOP.inter_A1=24000;//30000//1600;
-	CTRL2P2Z_COEFF_current_LOOP.inter_A2=-17600;//-22000;//-23000//-25000//-28000;
-	CTRL2P2Z_COEFF_current_LOOP.inter_A3=5;
-
 	StartCpuTimer0();
 
 // Enable global Interrupts and higher priority real-time debug events:
@@ -277,6 +280,9 @@ void main ( void )
 				SCICommu_Control(); 			// SCI Communication(46K80)
 			}
 
+//		IO_2_SEC_PFC_OFF();
+			
+
 
 		}
 
@@ -320,12 +326,15 @@ __interrupt void adc_isr ( void )
 //	LED_ON();
 
 	//add code here
-	i16 temp_I_ref,temp_duty_I;
+	i16 temp_I_ref,temp_duty_I,I_error;
 	static u16 uFlag_turn_on=1;
 	static u16 Latch_counter=0;
 	static u16 u16Negitive_Cnt=0;
 	static u16 u16Positive_Cnt=0;
 	static u16 Once_Secondary=0;
+	u16 temp_out;
+	u32 u32_I_error;
+	i16 I_error_temp;
 //	static long u32Max_duty_soft=0x1b00000;//432*16 //48%//0x1950000;//405*16;//45%
 
 	AD_u16_I_AC 	= AdcResult.ADCRESULT0;
@@ -336,62 +345,58 @@ __interrupt void adc_isr ( void )
 
 
 #if 1
-	if ( AD_u16_U_AC_L_FB > AD_u16_U_AC_N_FB )
+	if ( AD_u16_U_AC_L_FB > AD_u16_U_AC_N_FB )		//L > N
 	{
 		u16Xvin = AD_u16_U_AC_L_FB - AD_u16_U_AC_N_FB;
 		u16Negitive_Cnt++;
 		u16Positive_Cnt=0;
 		if ( u16Negitive_Cnt>2 )
 		{
-			uPFCFlags.b.Is_positive_ture = FALSE;
+			uPFCFlags.b.Is_N_greater_than_L = FALSE;
 //			GL_SR_ClrVal();
 //			GH_SR_SetVal();
 		}
-
-
 	}
-	else
+	else											//N > L
 	{
 		u16Xvin = AD_u16_U_AC_N_FB - AD_u16_U_AC_L_FB;
 		u16Negitive_Cnt=0;
 		u16Positive_Cnt++;
 		if ( u16Positive_Cnt>2 )
 		{
-			uPFCFlags.b.Is_positive_ture = TRUE ;
+			uPFCFlags.b.Is_N_greater_than_L = TRUE ;
 //			GL_SR_ClrVal();
 //			GH_SR_SetVal();
 		}
 	}
 
-	if ( uPFCFlags.b.Is_positive_ture!=uFlag_turn_on )
+	if ( uPFCFlags.b.Is_N_greater_than_L!=uFlag_turn_on )
 	{
 //		LED_TOGGLE();
-		uFlag_turn_on=uPFCFlags.b.Is_positive_ture;
+		uFlag_turn_on=uPFCFlags.b.Is_N_greater_than_L;
 		Latch_counter=0;
-		if ( uPFCFlags.b.Is_positive_ture )
+		if ( uPFCFlags.b.Is_N_greater_than_L )		//N > L
 		{
 //			LED_ON();
+			CBC_Config_N();
 			uPFCFlags.b.PFC_Neg_off=1;
 			uPFCFlags.b.PFC_Pos_off=0;
 			EPwm1Regs.ETSEL.bit.SOCASEL = ET_CTR_PRD;		// Select SOC from PRD
 //			EPWM1A_DB = EPWM_PFC_SW_FREQUENCY;
 			PFC_EPWMxA_CMPA = ( DUTY_EPWMA_OFF );
 			//TESTEnd1();
-//			PWMA_SM0TCTRL=0x02;
-//			XBARA_SEL6=0x1313;
 
 		}
-		else
+		else										//L > N
 		{
 //			LED_OFF();
+			CBC_Config_L();
 			uPFCFlags.b.PFC_Pos_off=1;
 			uPFCFlags.b.PFC_Neg_off=0;
 			EPwm1Regs.ETSEL.bit.SOCASEL = ET_CTR_ZERO;		// Select SOC from PRD
 //			EPWM1B_DB = EPWM_PFC_SW_FREQUENCY;
 			PFC_EPWMxB_CMPB = DUTY_EPWMB_OFF;
 			//	TESTBegin1();
-//			PWMA_SM0TCTRL=0x01;
-//			XBARA_SEL6=0x1212;
 		}
 
 	}
@@ -433,7 +438,41 @@ __interrupt void adc_isr ( void )
 
 //	temp_I_ref = u16Xiin + 10;
 
-	temp_duty_I = PI_Boost_internal ( temp_I_ref, u16Xiin, ( ( ( u32 ) MAX_PFC_DUTY ) <<16 ), &CTRL2P2Z_COEFF_current_LOOP, ( ( ( u32 ) MIN_PFC_DUTY ) <<16 ) );
+	//	error =  Voutref- VoutT
+	I_error = temp_I_ref - u16Xiin;
+
+//	I_error = -190;
+//		u16Xiin=200;
+
+
+	if ( u16Xiin>67 )
+	{
+		I_error_temp = ( 476-u16Xiin );
+		if ( I_error_temp<200 )
+		{
+			I_error_temp=200;
+		}
+
+		if ( I_error > 0 )
+		{
+			u32_I_error = ( ( ( u32 ) I_error )  );
+			u32_I_error = ( ( I_error_temp*u32_I_error ) >>9 );
+			I_error = ( u16 ) ( u32_I_error );
+		}
+		else
+		{
+			I_error= ( -I_error );
+			u32_I_error = ( ( ( u32 ) I_error ) );
+			u32_I_error = ( ( I_error_temp*u32_I_error ) >>9 );
+			I_error = ( u16 ) ( u32_I_error );
+			I_error= ( -I_error );
+		}
+	}
+
+//	temp_duty_I = PI_Boost_internal ( I_error, ( ( ( u32 ) MAX_PFC_DUTY ) <<16 ), &CTRL2P2Z_COEFF_current_LOOP, ( ( ( u32 ) MIN_PFC_DUTY ) <<16 ) );
+//	temp_duty_I = PI_Boost_internal ( int16 error, int32 Max_out,CTRL2P2Z_coeff* CTRL2p2z,int32 U32Min_out )
+
+	temp_duty_I = PI_Boost_internal ( I_error, ( ( ( u32 ) MAX_PFC_DUTY ) <<16 ), &CTRL2P2Z_COEFF_current_LOOP, ( ( ( u32 ) MIN_PFC_DUTY ) <<16 ) );
 
 #endif
 
@@ -454,6 +493,7 @@ __interrupt void adc_isr ( void )
 	if ( u16AvgVbus > PRI_VBUS_420V )	//CBC
 	{
 		uPFCFlags.b.CBC_OC = 1;
+		CTRL2P2Z_COEFF_current_LOOP.Uout_z1 = 0;
 		temp_duty_I = MIN_PFC_DUTY;
 	}
 
@@ -483,13 +523,35 @@ __interrupt void adc_isr ( void )
 //		LED_TOGGLE();
 		if ( uPFCFlags.b.PFC_Pos_off )
 		{
-			PFC_EPWMxA_CMPA= EPWM_PFC_SW_FREQUENCY - ( MAX_PFC_DUTY>>3 ) * Latch_counter;	//
-			PFC_EPWMxB_CMPB = DUTY_EPWMB_OFF;
+
+			temp_out = ( ( MAX_PFC_DUTY>>3 ) *Latch_counter );
+			CTRL2P2Z_COEFF_current_LOOP.Uout_z1 = ( ( ( i32 ) temp_out ) <<16 );
+			if ( u16AvgVbus > PRI_VBUS_420V )
+			{
+				PFC_EPWMxA_CMPA= DUTY_EPWMA_OFF;	//
+				PFC_EPWMxB_CMPB = DUTY_EPWMB_OFF;
+			}
+			else
+			{
+				PFC_EPWMxA_CMPA= EPWM_PFC_SW_FREQUENCY - temp_out;	//
+				PFC_EPWMxB_CMPB = DUTY_EPWMB_OFF;
+			}
 		}
 		else if ( uPFCFlags.b.PFC_Neg_off )
 		{
-			PFC_EPWMxB_CMPB =  ( MAX_PFC_DUTY>>3 ) *Latch_counter;
-			PFC_EPWMxA_CMPA = ( DUTY_EPWMA_OFF );
+			temp_out = ( ( MAX_PFC_DUTY>>3 ) *Latch_counter );
+			CTRL2P2Z_COEFF_current_LOOP.Uout_z1 = ( ( ( i32 ) temp_out ) <<16 );
+
+			if ( u16AvgVbus > PRI_VBUS_420V )
+			{
+				PFC_EPWMxA_CMPA= DUTY_EPWMA_OFF;	//
+				PFC_EPWMxB_CMPB = DUTY_EPWMB_OFF;
+			}
+			else
+			{
+				PFC_EPWMxB_CMPB =  temp_out;
+				PFC_EPWMxA_CMPA = ( DUTY_EPWMA_OFF );
+			}
 		}
 		GH_SR_ClrVal();
 		GL_SR_ClrVal();
@@ -595,7 +657,6 @@ __interrupt void adc_isr ( void )
 			Flag_Txd_cnt++;
 
 #endif
-
 			if ( Flag_Txd_cnt> ( test_cnt-20 ) )
 			{
 				Flag_Txd=1;
@@ -603,18 +664,12 @@ __interrupt void adc_isr ( void )
 			}
 		}
 
-
-
-
-
 	}
 
 
 
 
-
-
-	if ( u16Xvin<260 )	//50VRMS~300ADC
+	if ( u16Xvin<700 )	//50VRMS~300ADC	260~60V	540~120V 	700~180V
 	{
 		if ( temp_vin_UV>100 )
 		{
@@ -672,16 +727,16 @@ __interrupt void adc_isr ( void )
 void CBC_Config_L()
 {
 	EALLOW;
-	Comp1Regs.DACVAL.bit.DACVAL = 900;//775;					// Set DAC output to midpoint  (10 bits)
-	Comp1Regs.COMPCTL.bit.CMPINV = 0;						//0~immd	1~invt
+	Comp1Regs.DACVAL.bit.DACVAL = 365;//100;					// Set DAC output to midpoint  (10 bits)
+	Comp1Regs.COMPCTL.bit.CMPINV = 1;						//0~immd	1~invt
 	EDIS;
 }
 
 void CBC_Config_N()
 {
 	EALLOW;
-	Comp1Regs.DACVAL.bit.DACVAL = 100;//775;					// Set DAC output to midpoint  (10 bits)
-	Comp1Regs.COMPCTL.bit.CMPINV = 1;						//0~immd	1~invt
+	Comp1Regs.DACVAL.bit.DACVAL = 552;//900;					// Set DAC output to midpoint  (10 bits)
+	Comp1Regs.COMPCTL.bit.CMPINV = 0;						//0~immd	1~invt
 	EDIS;
 }
 

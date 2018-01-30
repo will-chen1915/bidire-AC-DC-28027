@@ -80,8 +80,8 @@ extern void SetDBGIER(Uint16 dbgier);
 // out of OTP/Flash will yield unpredictable results
 extern void InitFlash(void);
 
-extern void PFC_On(void);
-extern void PFC_Off(void);
+extern void PFC_ON(void);
+extern void PFC_OFF(void);
 extern void Vbus_Control_Init(void);
 //---------------------------------------------------------------------------
 // External symbols created by the linker cmd file

@@ -194,7 +194,7 @@ typedef union PFC_FLAGS_TAG
 
 		unsigned CBC_OC		:1;	// Indicates one or two phase operation
 		unsigned valley			:1;	// Indicates the line cycle valley
-		unsigned Is_positive_ture		:1;	// Indicates zero dv/dt crossover in line
+		unsigned Is_N_greater_than_L	:1;	// Indicates zero dv/dt crossover in line
 		unsigned t1ms_Triger		:1;
 
 		unsigned t200us_Triger      :1;
@@ -250,7 +250,8 @@ extern PFC_FLAGS uPFCFlags;
 #define	PFC_BUS_VSQUARE_SAT				(1200)
 #define PRI_VBUS_OV_WARN          		(u16)((double)430*V_BULK_GAIN)
 #define PRI_VBUS_OV_FAULT          		(u16)((double)440*V_BULK_GAIN)
-#define PRI_VBUS_UP          			(u16)((double)50*V_BULK_GAIN)
+#define PRI_VBUS_UP          			(u16)((double)360*V_BULK_GAIN)
+#define PRI_VBUS_30V          			(u16)((double)30*V_BULK_GAIN)
 #define PRI_VBUS_45V          			(u16)((double)45*V_BULK_GAIN)
 #define PRI_VBUS_60V          			(u16)((double)60*V_BULK_GAIN)
 #define PRI_VBUS_80V          			(u16)((double)80*V_BULK_GAIN)
@@ -304,8 +305,8 @@ extern PFC_FLAGS uPFCFlags;
 #define RELAY_ON()							GpioDataRegs.GPBDAT.bit.GPIO33	= 1;
 #define RELAY_OFF()							GpioDataRegs.GPBDAT.bit.GPIO33	= 0;
 
-#define PFC_ON()							GpioDataRegs.GPADAT.bit.GPIO4	= 1;//
-#define PFC_OFF()							GpioDataRegs.GPADAT.bit.GPIO4	= 0;//
+#define IO_2_SEC_PFC_ON()							GpioDataRegs.GPADAT.bit.GPIO4	= 0;//Verfied
+#define IO_2_SEC_PFC_OFF()							GpioDataRegs.GPADAT.bit.GPIO4	= 1;//Verfied
 
 
 #define PFC_PROTECT1_EN()							GpioDataRegs.GPADAT.bit.GPIO6	= 1;//
@@ -493,7 +494,8 @@ extern u16	temp;
 extern void Power_state_control ( void );
 extern void Timer_Handler_GS ( void );
 extern void Thread_Handler_GS ( void );
-extern  short PI_Boost_internal ( int Voutref, int VoutT,long Max_out,CTRL2P2Z_coeff* CTRL2p2z,long U32Min_out );
+//extern  short PI_Boost_internal ( int Voutref, int VoutT,long Max_out,CTRL2P2Z_coeff* CTRL2p2z,long U32Min_out );
+extern  short PI_Boost_internal ( int error,long Max_out,CTRL2P2Z_coeff* CTRL2p2z,long U32Min_out );
 extern  short PI_VBus ( i16 error, i32 Max_out,CTRL2P2Z_coeff* CTRL2p2z,i32 U32Min_out );
 extern void Vbus_Generate_Err ( void );
 extern void Check_Fast_Bus_Voltage_Conditions ( void );

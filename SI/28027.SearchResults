@@ -1,6 +1,10 @@
----- LED_ON Matches (5 in 2 files) ----
-Main.c (source):	LED_ON();
-Main.c (source)://	LED_ON();
-Main.c (source)://			LED_ON();
-Main.c (source):			LED_ON();
-Main.h (include):#define LED_ON()							GpioDataRegs.GPADAT.bit.GPIO17 = 1;//Value 0
+---- PFC_On Matches (9 in 6 files) ----
+Control_loop.c (source):void PFC_ON (  )
+F2802x_globalprototypes.h (include):extern void PFC_On(void);
+LED-ColorMix_linkInfo.xml (f2802x_flash):         <name>.text:_PFC_On</name>
+LED-ColorMix_linkInfo.xml (f2802x_flash):         <name>_PFC_On</name>
+Main.c (source):	PFC_ON();
+Main.h (include):#define PFC_ON()							GpioDataRegs.GPADAT.bit.GPIO4	= 1;//
+State.c (source)://				PFC_ON();
+State.c (source)://			PFC_ON();
+State.c (source):			PFC_On();

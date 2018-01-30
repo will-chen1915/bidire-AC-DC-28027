@@ -332,7 +332,7 @@ void InitComp ( void )
 	AdcRegs.ADCCTL1.bit.ADCBGPWD = 1;                     // Comparator shares the internal BG reference of the ADC, must be powered even if ADC is unused
 	DELAY_US ( 1000 );										 // Delay for Power Up
 	
-	//COMP1 LLC OCP
+	//COMP1  OCP
 	SysCtrlRegs.PCLKCR3.bit.COMP1ENCLK = 1;               // Enable clock to the Comparator 1 block 
 	Comp1Regs.COMPCTL.bit.COMPDACEN = 1;                  // Power up Comparator 1 locally
 	Comp1Regs.COMPCTL.bit.COMPSOURCE = 0;              // Connect the inverting input to the internal DAC
